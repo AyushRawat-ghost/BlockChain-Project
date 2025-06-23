@@ -110,7 +110,7 @@ contract Escrow {
     }
 
 // function to cancel the sale
-    function cancelSale(uint256 _nftID)public onlyBuyer(_nftID) onlySeller(){
+    function cancelSale(uint256 _nftID)public onlySeller(){
         if(inspectionPassed[_nftID]==false){
             payable(buyer[_nftID]).transfer(address(this).balance);
         }else{
