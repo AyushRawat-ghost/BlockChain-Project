@@ -59,6 +59,7 @@ function App() {
     setHome(home)
     toggle ? setToggle(false) : setToggle(true);
   }
+
   return (
     <div>
       <Navigation account={account} setAccount={setAccount} />
