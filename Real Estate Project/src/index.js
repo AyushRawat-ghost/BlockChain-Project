@@ -1,17 +1,21 @@
+// src/index.js
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import './index.css';
 import App from './App';
-import reportWebVitals from './reportWebVitals';
+import './index.css';            // your Tailwind + global styles
 
-const root = ReactDOM.createRoot(document.getElementById('root'));
+// 1. Grab the <div id="root"> from public/index.html
+const container = document.getElementById('root');
+if (!container) {
+  throw new Error('No root container found in public/index.html');
+}
+
+// 2. Create the React root
+const root = ReactDOM.createRoot(container);
+
+// 3. Render your App
 root.render(
   <React.StrictMode>
     <App />
   </React.StrictMode>
 );
-
-// If you want to start measuring performance in your app, pass a function
-// to log results (for example: reportWebVitals(console.log))
-// or send to an analytics endpoint. Learn more: https://bit.ly/CRA-vitals
-reportWebVitals();

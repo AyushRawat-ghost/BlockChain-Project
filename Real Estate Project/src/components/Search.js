@@ -1,14 +1,15 @@
-const Search = () => {
-    return (
-        <header>
-            <h2 className="header__title">Search it. Explore it. Buy it.</h2>
-            <input
-                type="text"
-                className="header__search"
-                placeholder="Enter an address, neighborhood, city, or ZIP code"
-            />
-        </header>
-    );
-}
+import React from 'react';
 
-export default Search;
+export default function Search({ searchQuery, onSearch }) {
+  return (
+    <div className="p-6 bg-white shadow-sm">
+      <input
+        type="text"
+        value={searchQuery}
+        onChange={e => onSearch(e.target.value)}
+        placeholder="🔍 Search by ID, title or address…"
+        className="w-full p-2 border rounded focus:outline-none focus:ring"
+      />
+    </div>
+  );
+}

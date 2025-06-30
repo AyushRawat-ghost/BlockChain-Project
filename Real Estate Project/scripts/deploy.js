@@ -1,67 +1,48 @@
-// We require the Hardhat Runtime Environment explicitly here. This is optional
-// but useful for running the script in a standalone fashion through `node <script>`.
-//
-// You can also run a script with `npx hardhat run <script>`. If you do that, Hardhat
-// will compile your contracts, add the Hardhat Runtime Environment's members to the
-// global scope, and execute the script.
-const hre = require("hardhat");
-
-const tokens = (n) => {
-  return ethers.utils.parseUnits(n.toString(), 'ether')
-}
+const { ethers } = require("hardhat");
 
 async function main() {
-  // Setup accounts
-  const [buyer, seller, inspector, lender] = await ethers.getSigners()
+  // 1) Fetch our three roles
+  const [deployer, inspector, lender] = await ethers.getSigners();
+  console.log("Accounts:");
+  console.log("  Deployer:", deployer.address);
+  console.log("  Inspector:", inspector.address);
+  console.log("  Lender:   ", lender.address);
 
-  // Deploy Real Estate
-  const RealEstate = await ethers.getContractFactory('RealEstate')
-  const realEstate = await RealEstate.deploy()
-  await realEstate.deployed()
-
-  console.log(`Deployed Real Estate Contract at: ${realEstate.address}`)
-  console.log(`Minting 3 properties...\n`)
-
-  for (let i = 0; i < 3; i++) {
-    const transaction = await realEstate.connect(seller).mint(`https://ipfs.io/ipfs/QmQVcpsjrA6cr1iJjZAodYwmPekYgbnXGo4DFubJiLc2EB/${i + 1}.json`)
-    await transaction.wait()
-  }
-
-  // Deploy Escrow
-  const Escrow = await ethers.getContractFactory('Escrow')
+  // 2) Deploy Escrow first with a dummy RealEstate address (zero)
+  console.log("\nDeploying Escrow…");
+  const Escrow = await ethers.getContractFactory("Escrow", deployer);
   const escrow = await Escrow.deploy(
-    realEstate.address,
-    seller.address,
+    ethers.constants.AddressZero,  // placeholder
     inspector.address,
     lender.address
-  )
-  await escrow.deployed()
+  );
+  await escrow.deployed();
+  console.log("  ↳ Escrow deployed to:", escrow.address);
 
-  console.log(`Deployed Escrow Contract at: ${escrow.address}`)
-  console.log(`Listing 3 properties...\n`)
+  // 3) Deploy RealEstate next, passing in the Escrow address as the authorized minter
+  console.log("\nDeploying RealEstate…");
+  const RealEstate = await ethers.getContractFactory("RealEstate", deployer);
+  const realEstate = await RealEstate.deploy(escrow.address);
+  await realEstate.deployed();
+  console.log("  ↳ RealEstate deployed to:", realEstate.address);
 
-  for (let i = 0; i < 3; i++) {
-    // Approve properties...
-    let transaction = await realEstate.connect(seller).approve(escrow.address, i + 1)
-    await transaction.wait()
-  }
+  // 4) Link them up: set the RealEstate address inside the Escrow contract  
+  console.log("\nLinking Escrow → RealEstate…");
+  const tx = await escrow.setRealEstateAddress(realEstate.address);
+  await tx.wait();
+  console.log("  ↳ Escrow now pointing at RealEstate");
 
-  // Listing properties...
-  transaction = await escrow.connect(seller).list(1, buyer.address, tokens(20), tokens(10))
-  await transaction.wait()
-
-  transaction = await escrow.connect(seller).list(2, buyer.address, tokens(15), tokens(5))
-  await transaction.wait()
-
-  transaction = await escrow.connect(seller).list(3, buyer.address, tokens(10), tokens(5))
-  await transaction.wait()
-
-  console.log(`Finished.`)
+  // 5) Print out final addresses for your frontend/config
+  console.log("\n=== DEPLOYMENT COMPLETE ===");
+  console.log(`RealEstate: ${realEstate.address}`);
+  console.log(`Escrow:     ${escrow.address}`);
+  console.log("\nAdd these to your config.json under network 31337:");
+  console.log(`"realEstate": { "address": "${realEstate.address}" },`);
+  console.log(`"escrow":     { "address": "${escrow.address}" }`);
 }
 
-// We recommend this pattern to be able to use async/await everywhere
-// and properly handle errors.
-main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+main()
+  .catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
