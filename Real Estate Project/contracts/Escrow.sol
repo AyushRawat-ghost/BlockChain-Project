@@ -153,18 +153,43 @@ contract Escrow {
         emit ListingRejected(_nftID, msg.sender);
     }
     
-    function depositEarnest(
-        uint256 _nftID,
-        address _buyer
-    ) public payable {
-        require(propertyStatus[_nftID] == ListingStatus.VERIFIED, "Listing is not verified");
-        require(purchasePrice[_nftID] > 0, "Purchase price not set");
+    // function depositEarnest(
+    //     uint256 _nftID,
+    //     address _buyer
+    // ) public payable {
+    //     require(propertyStatus[_nftID] == ListingStatus.VERIFIED, "Listing is not verified");
+    //     require(purchasePrice[_nftID] > 0, "Purchase price not set");
         
-        require(escrowAmount[_nftID] > 0, "Escrow amount not configured");
-        require(msg.value == escrowAmount[_nftID], "Incorrect escrow amount");
+    //     require(escrowAmount[_nftID] > 0, "Escrow amount not configured");
+    //     require(msg.value == escrowAmount[_nftID], "Incorrect escrow amount");
 
-        buyer[_nftID] = _buyer;
-    }
+    //     buyer[_nftID] = _buyer;
+    //     approval[_nftID][_buyer] = true;
+    // }
+
+
+function depositEarnest(
+    uint256 _nftID,
+    address _buyer
+) public payable {
+    require(
+        propertyStatus[_nftID] == ListingStatus.VERIFIED,
+        "Listing is not verified"
+    );
+    require(
+        purchasePrice[_nftID] > 0,
+        "Purchase price not set"
+    );
+    // you no longer need escrowAmount here
+    require(
+        msg.value == purchasePrice[_nftID],
+        "Must send full purchase price"
+    );
+
+    buyer[_nftID]            = _buyer;
+    approval[_nftID][_buyer] = true;
+}
+
 
     function updateInspectionStatus(
         uint256 _nftID,
@@ -184,26 +209,80 @@ contract Escrow {
         approval[_nftID][_party] = true;
     }
 
+    // function finalizeSale(
+    //     uint256 _nftID
+    // ) public onlyLender {
+    //     require(propertyStatus[_nftID] == ListingStatus.VERIFIED, "Listing is not verified");
+    //     require(inspectionPassed[_nftID], "Inspection has not passed");
+    //     // require(approval[_nftID][buyer[_nftID]], "Buyer has not approved");
+    //     // require(approval[_nftID][sellers[_nftID]], "Seller has not approved");
+    //     require(approval[_nftID][lender], "Lender has not approved");
+    //     require(buyer[_nftID] != address(0), "Buyer has not deposited earnest");
+    //     require(address(this).balance >= purchasePrice[_nftID], "Insufficient funds in escrow to finalize sale");
+
+    //     realEstate.transferFrom(sellers[_nftID], buyer[_nftID], _nftID);
+        
+    //     (bool success, ) = payable(sellers[_nftID]).call{value: purchasePrice[_nftID]}("");
+    //     require(success, "Failed to transfer purchase price to seller");
+
+    //     propertyStatus[_nftID] = ListingStatus.SOLD;
+    //     isListed[_nftID] = false;
+    //     emit SaleFinalized(_nftID, buyer[_nftID], sellers[_nftID], purchasePrice[_nftID]);
+    // }
+
+
     function finalizeSale(
         uint256 _nftID
     ) public onlyLender {
-        require(propertyStatus[_nftID] == ListingStatus.VERIFIED, "Listing is not verified");
-        require(inspectionPassed[_nftID], "Inspection has not passed");
-        require(approval[_nftID][buyer[_nftID]], "Buyer has not approved");
-        require(approval[_nftID][sellers[_nftID]], "Seller has not approved");
-        require(approval[_nftID][lender], "Lender has not approved");
-        require(buyer[_nftID] != address(0), "Buyer has not deposited earnest");
-        require(address(this).balance >= purchasePrice[_nftID], "Insufficient funds in escrow to finalize sale");
+    // 1) Listing must have been verified by the inspector
+    require(
+        propertyStatus[_nftID] == ListingStatus.VERIFIED,
+        "Listing is not verified"
+    );
 
-        realEstate.transferFrom(sellers[_nftID], buyer[_nftID], _nftID);
-        
-        (bool success, ) = payable(sellers[_nftID]).call{value: purchasePrice[_nftID]}("");
-        require(success, "Failed to transfer purchase price to seller");
+    // 2) The on-chain inspection flag must be true
+    require(
+        inspectionPassed[_nftID],
+        "Inspection has not passed"
+    );
 
-        propertyStatus[_nftID] = ListingStatus.SOLD;
-        isListed[_nftID] = false;
-        emit SaleFinalized(_nftID, buyer[_nftID], sellers[_nftID], purchasePrice[_nftID]);
-    }
+    // 3) The lender must have explicitly approved the sale
+    require(
+        approval[_nftID][lender],
+        "Lender has not approved"
+    );
+
+    require(
+        buyer[_nftID] != address(0),
+        "Buyer has not deposited earnest"
+    );
+    require(
+        address(this).balance >= purchasePrice[_nftID],
+        "Insufficient funds in escrow to finalize"
+    );
+    realEstate.transferFrom(
+        sellers[_nftID],
+        buyer[_nftID],
+        _nftID
+    );
+    (bool success, ) = payable(sellers[_nftID]).call{
+        value: purchasePrice[_nftID]
+    }("");
+    require(
+        success,
+        "Failed to transfer purchase price to seller"
+    );
+    propertyStatus[_nftID] = ListingStatus.SOLD;
+    isListed[_nftID]      = false;
+
+    emit SaleFinalized(
+        _nftID,
+        buyer[_nftID],
+        sellers[_nftID],
+        purchasePrice[_nftID]
+    );
+}
+
 
     function cancelSale(
         uint256 _nftID

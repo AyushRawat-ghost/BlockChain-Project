@@ -1,66 +1,110 @@
 // src/components/LenderPanel.js
 
 import React, { useEffect, useState } from 'react';
-import { collection, onSnapshot, doc, updateDoc } from 'firebase/firestore';
-import { db } from '../firebase';
-import config from '../config.json';
+import {
+  collection,
+  onSnapshot,
+  doc,
+  updateDoc
+} from 'firebase/firestore';
+import { db }     from '../firebase';
+import { ethers } from 'ethers';
+import config     from '../config.json';
 
-const NETWORK = '31337';
-const LENDER_ADDR = config[NETWORK].lender.toLowerCase();
+const CHAIN      = '31337';
+const LENDER     = config[CHAIN].lender.toLowerCase();
 
 export default function LenderPanel({ escrow, account }) {
   const [listings, setListings] = useState([]);
-  const [busyId, setBusyId] = useState(null);
+  const [busyId, setBusyId]     = useState(null);
 
-  // Subscribe to Firestore listings that the lender needs to close
+  // 1) Subscribe to Firestore listings that are VERIFIED & have a buyer
   useEffect(() => {
-    if (account?.toLowerCase() !== LENDER_ADDR) return;
-
+    if (account?.toLowerCase() !== LENDER) return;
     const unsub = onSnapshot(collection(db, 'listings'), snap => {
       const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      // Show only VERIFIED listings with an earnest-deposit (buyer set)
-      const pending = docs.filter(
-        l => l.status === 'VERIFIED' && Boolean(l.buyer)
+      setListings(
+        docs.filter(l => l.status === 'VERIFIED' && Boolean(l.buyer))
       );
-      setListings(pending);
     });
-
     return () => unsub();
   }, [account]);
 
-  // Block non-lender wallets
-  if (account?.toLowerCase() !== LENDER_ADDR) {
+  // 2) Lock out non-lender
+  if (account?.toLowerCase() !== LENDER) {
     return (
       <p className="text-center mt-20 text-red-600">
-        🚫 Access denied. Only the lender can finalize sales.
+        🚫 Only the lender can finalize sales.
       </p>
     );
   }
 
-  // Finalize sale on-chain, then mark as SOLD in Firestore
+  // 3) Approve & finalize flow
   const handleFinalize = async (listingID, docId) => {
     setBusyId(listingID);
-    try {
-      // 1) call finalizeSale(listingID)
-      const tx = await escrow.finalizeSale(listingID);
-      await tx.wait();
 
-      // 2) Update Firestore status to SOLD
-      await updateDoc(doc(db, 'listings', docId), {
-        status: 'SOLD',
-      });
+    try {
+      // a) fetch on-chain state
+      const [ps, passed, priceBn] = await Promise.all([
+        escrow.propertyStatus(listingID),
+        escrow.inspectionPassed(listingID),
+        escrow.purchasePrice(listingID)
+      ]);
+      const status = ps.toNumber ? ps.toNumber() : Number(ps);
+
+      if (status !== 2) throw new Error('Listing not VERIFIED');
+      if (!passed)     throw new Error('Inspection not passed');
+
+      console.log(
+        `✅ on-chain OK – price = ${ethers.utils.formatEther(priceBn)} ETH`
+      );
+
+      // b) lender approves itself
+      console.log('⏳ approveSale()');
+      const txA = await escrow.approveSale(
+        listingID,
+        account,
+        { gasLimit: 200_000 }
+      );
+      await txA.wait();
+      console.log('✅ approveSale mined');
+
+      // c) lender finalizes the sale
+      console.log('⏳ finalizeSale()');
+      const txF = await escrow.finalizeSale(
+        listingID,
+        { gasLimit: 500_000 }
+      );
+      await txF.wait();
+      console.log('✅ finalizeSale mined');
+
+      // d) update Firestore → SOLD
+      await updateDoc(doc(db, 'listings', docId), { status: 'SOLD' });
+      alert(`🏁 Sale finalized – ${ethers.utils.formatEther(priceBn)} ETH sent.`);
     } catch (err) {
-      console.error('finalizeSale failed:', err);
-      alert(err.reason || err.message || 'Failed to finalize sale');
+      console.error('❌ FULL ERROR OBJECT:', err);
+
+      // peel out the real revert reason
+      const reason =
+        err.error?.data?.message    ||
+        err.data?.message           ||
+        err.error?.message          ||
+        err.reason                  ||
+        err.message                 ||
+        'Unknown error';
+
+      console.error('Revert reason:', reason);
+      alert(`🚨 finalizeSale failed: ${reason}`);
     } finally {
       setBusyId(null);
     }
   };
 
+  // 4) Render
   if (listings.length === 0) {
     return (
-      <p className="text-center mt-20 text-gray-600">
-        No properties pending your approval.
+      <p className="text-gray-600 p-6 text-center">
+        No properties pending finalization.
       </p>
     );
   }
@@ -80,9 +124,11 @@ export default function LenderPanel({ escrow, account }) {
           <div className="p-4 flex-1">
             <h3 className="text-xl font-semibold mb-1">{l.title}</h3>
             <p className="text-gray-700 mb-2">{l.address}</p>
-            <p className="text-green-700 font-bold mb-4">{l.price} ETH</p>
-            <p className="text-sm mb-2">
-              Buyer: <span className="font-mono">{l.buyer}</span>
+            <p className="text-green-700 font-bold mb-2">
+              {ethers.utils.formatEther(ethers.BigNumber.from(l.price))} ETH
+            </p>
+            <p className="text-sm mb-4">
+              Buyer: <code>{l.buyer}</code>
             </p>
           </div>
           <button
@@ -94,7 +140,7 @@ export default function LenderPanel({ escrow, account }) {
                 : 'bg-blue-600 hover:bg-blue-700'
             }`}
           >
-            {busyId === l.listingID ? 'Finalizing…' : 'Finalize Sale'}
+            {busyId === l.listingID ? 'Finalizing…' : '✔️ Finalize Sale'}
           </button>
         </div>
       ))}
