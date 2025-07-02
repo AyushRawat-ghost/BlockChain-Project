@@ -12,9 +12,9 @@ import {
 } from 'firebase/firestore'
 
 export default function PropertyDetail({ escrow, account }) {
-  const { listingID } = useParams()           // string, e.g. "1"
+  const { listingID } = useParams()
   const [listing, setListing] = useState(null)
-  const [status, setStatus]   = useState('loading')  
+  const [status, setStatus]   = useState('loading')
   const [busy, setBusy]       = useState(false)
 
   useEffect(() => {
@@ -23,15 +23,11 @@ export default function PropertyDetail({ escrow, account }) {
       collection(db, 'listings'),
       snap => {
         const all = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-        // find by matching listingID (force both to string)
-        const found = all.find(item => 
-          item.listingID?.toString() === listingID
-        )
+        const found = all.find(item => item.listingID?.toString() === listingID)
         if (found) {
           setListing(found)
           setStatus('loaded')
         } else if (snap.docs.length) {
-          // we have docs but none match
           setStatus('notfound')
         }
       },
@@ -40,7 +36,7 @@ export default function PropertyDetail({ escrow, account }) {
         setStatus('error')
       }
     )
-    return () => unsub()
+    return unsub
   }, [listingID])
 
   if (status === 'loading') {
@@ -53,7 +49,6 @@ export default function PropertyDetail({ escrow, account }) {
     return <p className="p-6 text-center text-red-600">Error loading property.</p>
   }
 
-  // we have a listing now
   const {
     id: docId,
     title,
@@ -65,7 +60,8 @@ export default function PropertyDetail({ escrow, account }) {
     price,
     owner,
     buyer,
-    status: propStatus
+    status: propStatus,
+    photoURL
   } = listing
 
   const lc      = s => (s || '').toLowerCase()
@@ -84,9 +80,9 @@ export default function PropertyDetail({ escrow, account }) {
         status: 'EARNEST_PAID',
         buyer:  lc(account)
       })
-      // sync local state
       setListing(prev => ({ ...prev, status: 'EARNEST_PAID', buyer: lc(account) }))
     } catch (err) {
+      console.error(err)
       alert(err.error?.data?.message || err.message)
     }
     setBusy(false)
@@ -121,6 +117,20 @@ export default function PropertyDetail({ escrow, account }) {
 
   return (
     <div className="max-w-3xl mx-auto p-6 bg-white rounded shadow space-y-4">
+      {/* Image or placeholder */}
+      {photoURL ? (
+        <img
+          src={photoURL}
+          alt={title}
+          className="w-full h-60 object-cover rounded"
+          onError={e => (e.currentTarget.src = '/placeholder.jpg')}
+        />
+      ) : (
+        <div className="w-full h-60 bg-gray-200 rounded flex items-center justify-center">
+          <span className="text-gray-500">No Image Available</span>
+        </div>
+      )}
+
       <h1 className="text-3xl font-bold">{title}</h1>
       <p className="text-gray-600">{address}</p>
 

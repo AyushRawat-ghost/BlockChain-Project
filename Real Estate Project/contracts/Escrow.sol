@@ -382,6 +382,12 @@ contract Escrow {
     event InspectionUpdated(uint256 indexed listingID, bool passed);
     event ApprovalUpdated(uint256 indexed listingID, address indexed participant);
     event SaleFinalized(uint256 indexed listingID);
+      event SaleCancelled(
+        uint256 indexed nftID,
+        address indexed refundedTo,
+        uint256 amount
+    );
+
 
     modifier onlyBuyer(uint256 id)  { require(msg.sender == buyer[id],  "Only buyer");    _; }
     modifier onlySeller(uint256 id) { require(msg.sender == sellers[id],"Only seller");   _; }

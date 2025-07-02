@@ -1,7 +1,9 @@
 // src/firebase.js
-import { initializeApp, getApps } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+
+import { initializeApp, getApps, getApp } from "firebase/app"
+import { getAuth }    from "firebase/auth"
+import { getFirestore } from "firebase/firestore"
+import { getStorage } from "firebase/storage"
 
 const firebaseConfig = {
   apiKey: "AIzaSyBFTBjHUsnr-FXn6ObX7LaPV3e8UNhxDFM",
@@ -11,12 +13,18 @@ const firebaseConfig = {
   messagingSenderId: "502462149190",
   appId: "1:502462149190:web:88972ff1e5067ab4f19047",
   measurementId: "G-87BNBJ7T5P"
-};
-
-// initialize once
-if (!getApps().length) {
-  initializeApp(firebaseConfig);
 }
 
-export const auth = getAuth();
-export const db = getFirestore();
+// Initialize Firebase app once
+const app = !getApps().length
+  ? initializeApp(firebaseConfig)
+  : getApp()
+
+// Auth instance (optional)
+export const auth = getAuth(app)
+
+// Firestore instance
+export const db = getFirestore(app)
+
+// Storage instance—make sure to export this!
+export const storage = getStorage(app)

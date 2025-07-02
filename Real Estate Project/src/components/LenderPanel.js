@@ -14,19 +14,14 @@ import { db } from '../firebase'
 import { FaBed, FaBath, FaRulerCombined } from 'react-icons/fa'
 
 export default function LenderPanel({ escrow, account, lender }) {
-  // safe lowercase helper
-  const lc = str => (typeof str === 'string' ? str.toLowerCase() : '')
-
-  // only true when account matches lender
+  const lc       = s => (s || '').toLowerCase()
   const isLender = lc(account) === lc(lender)
 
   const [listings, setListings] = useState([])
   const [busyMap, setBusyMap]   = useState({})
 
-  // subscribe to listings where earnest has been paid
   useEffect(() => {
     if (!escrow || !isLender) return
-
     const q = query(
       collection(db, 'listings'),
       where('status', '==', 'EARNEST_PAID')
@@ -37,55 +32,62 @@ export default function LenderPanel({ escrow, account, lender }) {
     return unsub
   }, [escrow, isLender])
 
-  const handleApproveAndFinalize = async listing => {
-    const { id: docId, listingID, buyer } = listing
-    const buyerLc = lc(buyer)
-    if (!buyerLc) {
-      return alert('⚠️ Buyer address missing—cannot finalize.')
-    }
+  const setBusy = (id, val) =>
+    setBusyMap(m => ({ ...m, [id]: val }))
 
-    setBusyMap(m => ({ ...m, [docId]: true }))
+  const handleFinalize = async l => {
+    setBusy(l.id, true)
     try {
-      // 1) on-chain: approve sale
-      const tx = await escrow
-        .connect(escrow.signer)
-        .approveSale(listingID)
+      const tx = await escrow.connect(escrow.signer).approveSale(l.listingID)
+      await tx.wait()
+      await updateDoc(doc(db, 'listings', l.id), {
+        status: 'SOLD',
+        owner:  lc(l.buyer)
+      })
+      alert(`✅ Listing #${l.listingID} sold.`)
+    } catch (err) {
+      console.error(err)
+      alert(err.error?.data?.message || err.message)
+    }
+    setBusy(l.id, false)
+  }
+
+  const handleReject = async l => {
+    if (!window.confirm('Reject and refund buyer’s earnest?')) return
+    setBusy(l.id, true)
+    try {
+      // 1) On-chain: refund earnest deposit to buyer
+      //    → You must have implemented this in your contract
+      const tx = await escrow.connect(escrow.signer).rejectSale(l.listingID)
       await tx.wait()
 
-      // 2) off-chain: mark sold & transfer ownership
-      await updateDoc(doc(db, 'listings', docId), {
-        status: 'SOLD',
-        owner:  buyerLc
+      // 2) Off-chain: reset status so it goes back to VERIFIED
+      await updateDoc(doc(db, 'listings', l.id), {
+        status: 'VERIFIED',
+        buyer:  null
       })
-      alert(`✅ Listing #${listingID} sold to ${buyerLc}`)
+
+      alert(
+        `⛔ Listing #${l.listingID} rejected. ` +
+        `Earnest refunded to buyer ${l.buyer}.`
+      )
     } catch (err) {
-      console.error('Finalize error:', err)
+      console.error(err)
       alert(err.error?.data?.message || err.message)
-    } finally {
-      setBusyMap(m => {
-        const next = { ...m }
-        delete next[docId]
-        return next
-      })
     }
+    setBusy(l.id, false)
   }
 
   if (!account || !lender) {
     return (
-      <p className="p-6 text-center text-gray-500">
-        🔄 Checking your role…
-      </p>
+      <p className="p-6 text-center text-gray-500">🔄 Checking your role…</p>
     )
   }
-
   if (!isLender) {
     return (
-      <p className="p-6 text-center text-red-600">
-        🚫 You are not the lender.
-      </p>
+      <p className="p-6 text-center text-red-600">🚫 You are not the lender.</p>
     )
   }
-
   if (!listings.length) {
     return (
       <p className="p-6 text-center text-gray-500">
@@ -105,7 +107,23 @@ export default function LenderPanel({ escrow, account, lender }) {
             key={l.id}
             className="flex flex-col md:flex-row bg-white rounded-lg shadow overflow-hidden"
           >
-            {/* Property Details */}
+            {/* Image or placeholder */}
+            <div className="w-full md:w-1/3 flex-shrink-0">
+              {l.photoURL ? (
+                <img
+                  src={l.photoURL}
+                  alt={l.title}
+                  className="w-full h-40 object-cover"
+                  onError={e => (e.currentTarget.src = '/placeholder.jpg')}
+                />
+              ) : (
+                <div className="w-full h-40 bg-gray-200 flex items-center justify-center">
+                  <span className="text-gray-500">No Image</span>
+                </div>
+              )}
+            </div>
+
+            {/* Details */}
             <div className="flex-1 p-6 space-y-2">
               <h3 className="text-2xl font-semibold">
                 #{l.listingID} – {l.title}
@@ -125,35 +143,31 @@ export default function LenderPanel({ escrow, account, lender }) {
               </div>
 
               <p className="text-gray-700 mt-2">{l.description}</p>
-
               <div className="flex flex-wrap gap-6 text-gray-600 text-sm mt-3">
-                <div>
-                  <strong>Owner:</strong> {l.owner}
-                </div>
-                <div>
-                  <strong>Buyer:</strong> {l.buyer || '–'}
-                </div>
-                <div>
-                  <strong>Price:</strong> {l.price} ETH
-                </div>
-                <div>
-                  <strong>Status:</strong> {l.status.replace(/_/g, ' ')}
-                </div>
+                <span><strong>Buyer:</strong> {l.buyer}</span>
+                <span><strong>Status:</strong> {l.status.replace(/_/g, ' ')}</span>
               </div>
             </div>
 
-            {/* Approve & Finalize Button */}
-            <div className="flex items-center justify-center p-6">
+            {/* Actions */}
+            <div className="flex items-center justify-around p-6 space-x-2">
               <button
-                onClick={() => handleApproveAndFinalize(l)}
+                onClick={() => handleFinalize(l)}
                 disabled={busy}
-                className={`px-6 py-2 rounded-full text-white font-medium ${
-                  busy
-                    ? 'bg-gray-400'
-                    : 'bg-purple-600 hover:bg-purple-700'
+                className={`px-4 py-2 rounded text-white ${
+                  busy ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700'
                 }`}
               >
-                {busy ? '⏳ Processing…' : '✅ Approve & Finalize'}
+                {busy ? '⏳' : 'Finalize'}
+              </button>
+              <button
+                onClick={() => handleReject(l)}
+                disabled={busy}
+                className={`px-4 py-2 rounded text-white ${
+                  busy ? 'bg-gray-400' : 'bg-red-600 hover:bg-red-700'
+                }`}
+              >
+                {busy ? '⏳' : 'Reject & Refund'}
               </button>
             </div>
           </div>
