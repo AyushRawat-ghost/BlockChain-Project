@@ -361,7 +361,7 @@ contract Escrow {
     address    public inspector;
     address    public lender;
 
-    enum ListingStatus { PROPOSED, PENDING_INSPECTION, VERIFIED, REJECTED, SOLD }
+    enum ListingStatus { PROPOSED, PENDING_INSPECTION, VERIFIED,EARNEST_PAID, REJECTED, SOLD }
 
     mapping(uint256 => address)                 public sellers;
     mapping(uint256 => ListingStatus)           public propertyStatus;
@@ -438,6 +438,7 @@ contract Escrow {
         require(isListed[listingID], "Not listed");
         require(msg.value == escrowAmount[listingID], "Wrong amount");
         buyer[listingID] = msg.sender;
+        propertyStatus[listingID] = ListingStatus.EARNEST_PAID;
         emit DepositEarnest(listingID, msg.sender, msg.value);
     }
 
@@ -485,6 +486,38 @@ contract Escrow {
 
         emit SaleFinalized(listingID);
     }
+
+function rejectSale(uint256 _nftID) external{
+    require(msg.sender == lender, "Only lender can cancel");
+
+    ListingStatus status = propertyStatus[_nftID];
+
+    // allow reject once earnest is paid
+    require(
+        status == ListingStatus.EARNEST_PAID,
+        "Can only cancel when earnest is paid"
+    );
+
+    address _buyer = buyer[_nftID];
+    uint256 amount = escrowAmount[_nftID];
+
+    require(_buyer != address(0), "No buyer to refund");
+    require(amount > 0, "No deposit to refund");
+    require(address(this).balance >= amount, "Insufficient balance");
+
+    // clear state before transfer
+    buyer[_nftID]         = address(0);
+    escrowAmount[_nftID]  = 0;
+    propertyStatus[_nftID] = ListingStatus.VERIFIED;  // or REJECTED if you prefer
+    isListed[_nftID]       = true;                   // relist
+
+    // refund buyer
+    (bool success, ) = payable(_buyer).call{ value: amount }("");
+    require(success, "Refund failed");
+
+    emit SaleCancelled(_nftID, _buyer, amount);
+}
+
 
     /// @notice Fallback to receive lender’s payment
     receive() external payable {}

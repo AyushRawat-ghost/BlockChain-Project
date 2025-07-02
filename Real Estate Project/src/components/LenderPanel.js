@@ -14,37 +14,45 @@ import { db } from '../firebase'
 import { FaBed, FaBath, FaRulerCombined } from 'react-icons/fa'
 
 export default function LenderPanel({ escrow, account, lender }) {
-  const lc       = s => (s || '').toLowerCase()
-  const isLender = lc(account) === lc(lender)
-
   const [listings, setListings] = useState([])
   const [busyMap, setBusyMap]   = useState({})
 
+  // helper for case‐insensitive compares
+  const lc = s => (s || '').toLowerCase()
+  const isLender = lc(account) === lc(lender)
+
+  // subscribe to listings with earnest paid
   useEffect(() => {
     if (!escrow || !isLender) return
+
     const q = query(
       collection(db, 'listings'),
       where('status', '==', 'EARNEST_PAID')
     )
+
     const unsub = onSnapshot(q, snap =>
       setListings(snap.docs.map(d => ({ id: d.id, ...d.data() })))
     )
+
     return unsub
   }, [escrow, isLender])
 
+  // mark a listing as busy
   const setBusy = (id, val) =>
     setBusyMap(m => ({ ...m, [id]: val }))
 
+  // finalize sale on‐chain & off‐chain
   const handleFinalize = async l => {
     setBusy(l.id, true)
     try {
       const tx = await escrow.connect(escrow.signer).approveSale(l.listingID)
       await tx.wait()
+
       await updateDoc(doc(db, 'listings', l.id), {
         status: 'SOLD',
         owner:  lc(l.buyer)
       })
-      alert(`✅ Listing #${l.listingID} sold.`)
+      alert(`✅ Listing #${l.listingID} sold to ${l.buyer}`)
     } catch (err) {
       console.error(err)
       alert(err.error?.data?.message || err.message)
@@ -52,25 +60,25 @@ export default function LenderPanel({ escrow, account, lender }) {
     setBusy(l.id, false)
   }
 
+  // reject sale → refund & relist
   const handleReject = async l => {
-    if (!window.confirm('Reject and refund buyer’s earnest?')) return
+      console.log(
+    "Trying to call rejectSale; has it been compiled in?",
+    typeof escrow.rejectSale
+  );
+    if (!window.confirm('Reject and refund this sale?')) return
     setBusy(l.id, true)
     try {
-      // 1) On-chain: refund earnest deposit to buyer
-      //    → You must have implemented this in your contract
+      // on‐chain refund
       const tx = await escrow.connect(escrow.signer).rejectSale(l.listingID)
       await tx.wait()
 
-      // 2) Off-chain: reset status so it goes back to VERIFIED
+      // off‐chain reset
       await updateDoc(doc(db, 'listings', l.id), {
         status: 'VERIFIED',
         buyer:  null
       })
-
-      alert(
-        `⛔ Listing #${l.listingID} rejected. ` +
-        `Earnest refunded to buyer ${l.buyer}.`
-      )
+      alert(`⛔ Listing #${l.listingID} rejected; buyer refunded.`)
     } catch (err) {
       console.error(err)
       alert(err.error?.data?.message || err.message)
@@ -78,22 +86,21 @@ export default function LenderPanel({ escrow, account, lender }) {
     setBusy(l.id, false)
   }
 
-  if (!account || !lender) {
-    return (
-      <p className="p-6 text-center text-gray-500">🔄 Checking your role…</p>
-    )
+  // UI fallbacks
+  if (!escrow) {
+    return <p className="p-6 text-center text-gray-500">
+      🔄 Connecting to contract…
+    </p>
   }
   if (!isLender) {
-    return (
-      <p className="p-6 text-center text-red-600">🚫 You are not the lender.</p>
-    )
+    return <p className="p-6 text-center text-red-600">
+      🚫 You are not the lender.
+    </p>
   }
   if (!listings.length) {
-    return (
-      <p className="p-6 text-center text-gray-500">
-        No listings awaiting lender approval.
-      </p>
-    )
+    return <p className="p-6 text-center text-gray-500">
+      No pending sales to approve.
+    </p>
   }
 
   return (
@@ -102,6 +109,7 @@ export default function LenderPanel({ escrow, account, lender }) {
 
       {listings.map(l => {
         const busy = !!busyMap[l.id]
+
         return (
           <div
             key={l.id}
@@ -118,7 +126,7 @@ export default function LenderPanel({ escrow, account, lender }) {
                 />
               ) : (
                 <div className="w-full h-40 bg-gray-200 flex items-center justify-center">
-                  <span className="text-gray-500">No Image</span>
+                  <span className="text-gray-500">No Image Available</span>
                 </div>
               )}
             </div>
@@ -143,31 +151,35 @@ export default function LenderPanel({ escrow, account, lender }) {
               </div>
 
               <p className="text-gray-700 mt-2">{l.description}</p>
+              
               <div className="flex flex-wrap gap-6 text-gray-600 text-sm mt-3">
                 <span><strong>Buyer:</strong> {l.buyer}</span>
                 <span><strong>Status:</strong> {l.status.replace(/_/g, ' ')}</span>
+                <span><strong>Price:</strong> {l.price} ETH</span>
               </div>
             </div>
 
             {/* Actions */}
-            <div className="flex items-center justify-around p-6 space-x-2">
+            <div className="flex items-center justify-around p-6 space-x-4">
               <button
                 onClick={() => handleFinalize(l)}
                 disabled={busy}
-                className={`px-4 py-2 rounded text-white ${
-                  busy ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700'
-                }`}
+                className={`
+                  px-4 py-2 rounded text-white font-medium
+                  ${busy ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700'}
+                `}
               >
                 {busy ? '⏳' : 'Finalize'}
               </button>
               <button
                 onClick={() => handleReject(l)}
                 disabled={busy}
-                className={`px-4 py-2 rounded text-white ${
-                  busy ? 'bg-gray-400' : 'bg-red-600 hover:bg-red-700'
-                }`}
+                className={`
+                  px-4 py-2 rounded text-white font-medium
+                  ${busy ? 'bg-gray-400' : 'bg-red-600 hover:bg-red-700'}
+                `}
               >
-                {busy ? '⏳' : 'Reject & Refund'}
+                {busy ? '⏳' : 'Reject'}
               </button>
             </div>
           </div>
