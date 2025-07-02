@@ -1,3 +1,5 @@
+// src/components/InspectorPanel.js
+
 import React, { useEffect, useState } from 'react'
 import {
   collection,
@@ -8,19 +10,19 @@ import {
   doc
 } from 'firebase/firestore'
 import { db } from '../firebase'
+import { FaBed, FaBath, FaRulerCombined } from 'react-icons/fa'
 
 export default function InspectorPanel({ escrow, account, inspector }) {
   const [listings, setListings] = useState([])
   const [busyMap, setBusyMap]   = useState({})
 
-  const isInspector =
-    inspector &&
-    account &&
-    inspector.toLowerCase() === account.toLowerCase()
+  // check inspector role safely
+  const lc        = s => (s || '').toLowerCase()
+  const isInspect = lc(account) === lc(inspector)
 
-  // Subscribe to PROPOSED & PENDING_INSPECTION docs
+  // subscribe to PROPOSED & PENDING_INSPECTION
   useEffect(() => {
-    if (!escrow || !isInspector) return
+    if (!escrow || !isInspect) return
 
     const q = query(
       collection(db, 'listings'),
@@ -30,7 +32,7 @@ export default function InspectorPanel({ escrow, account, inspector }) {
       setListings(snap.docs.map(d => ({ id: d.id, ...d.data() })))
     )
     return unsub
-  }, [escrow, isInspector])
+  }, [escrow, isInspect])
 
   const handleInspect = async listing => {
     const { id: docId, listingID, status } = listing
@@ -38,63 +40,45 @@ export default function InspectorPanel({ escrow, account, inspector }) {
 
     try {
       if (status === 'PROPOSED') {
-        // STEP 1: on-chain updateInspection → PENDING_INSPECTION
-        const tx = await escrow
-          .connect(escrow.signer)
-          .updateInspection(listingID, true)
+        // on-chain updateInspection → PENDING_INSPECTION
+        const tx = await escrow.connect(escrow.signer).updateInspection(listingID, true)
         await tx.wait()
-
         await updateDoc(doc(db, 'listings', docId), {
           status: 'PENDING_INSPECTION'
         })
-        console.log(`🔄 #${listingID} → PENDING_INSPECTION`)
       } else {
-        // STEP 2: just mark as VERIFIED off-chain
+        // off-chain only → VERIFIED
         await updateDoc(doc(db, 'listings', docId), {
           status: 'VERIFIED'
         })
-        console.log(`✅ #${listingID} → VERIFIED`)
       }
     } catch (err) {
-      console.error('Inspection error:', err)
+      console.error(err)
       alert(err.error?.data?.message || err.message)
     } finally {
       setBusyMap(m => {
-        const nxt = { ...m }
-        delete nxt[docId]
-        return nxt
+        const next = { ...m }
+        delete next[docId]
+        return next
       })
     }
   }
 
   if (!escrow) {
-    return (
-      <p className="p-6 text-center text-gray-500">
-        🔌 Connecting to contract…
-      </p>
-    )
+    return <p className="p-6 text-center text-gray-500">🔌 Connecting to contract…</p>
   }
 
-  if (!isInspector) {
-    return (
-      <p className="p-6 text-center text-red-600">
-        🚫 You are not authorized (Inspector only).
-      </p>
-    )
+  if (!isInspect) {
+    return <p className="p-6 text-center text-red-600">🚫 You are not the inspector.</p>
   }
 
-  if (listings.length === 0) {
-    return (
-      <p className="p-6 text-center text-gray-500">
-        No listings pending inspection.
-      </p>
-    )
+  if (!listings.length) {
+    return <p className="p-6 text-center text-gray-500">No listings to inspect.</p>
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-6 bg-white rounded shadow space-y-4">
-      <h2 className="text-2xl font-bold text-center">🕵️ Inspector Panel</h2>
-
+    <div className="max-w-4xl mx-auto p-6 space-y-6">
+      <h2 className="text-3xl font-bold text-center">🕵️ Inspector Panel</h2>
       {listings.map(l => {
         const busy      = !!busyMap[l.id]
         const isProposed = l.status === 'PROPOSED'
@@ -106,27 +90,61 @@ export default function InspectorPanel({ escrow, account, inspector }) {
         const btnLabel = busy
           ? '⏳ Processing…'
           : isProposed
-          ? '📝 Acknowledge Listing'
-          : '✔️ Finalize Verification'
+          ? '📝 Acknowledge'
+          : '✔️ Finalize'
 
         return (
           <div
             key={l.id}
-            className="flex justify-between items-center p-4 border rounded"
+            className="flex flex-col md:flex-row bg-white rounded-lg shadow overflow-hidden"
           >
-            <div>
-              <p className="font-semibold">
+            {/* Details */}
+            <div className="flex-1 p-6 space-y-2">
+              <h3 className="text-2xl font-semibold">
                 #{l.listingID} – {l.title}
-              </p>
-              <p className="text-sm text-gray-600">Status: {l.status}</p>
+              </h3>
+              <p className="text-gray-600">{l.address}</p>
+
+              <div className="flex flex-wrap gap-4 text-gray-600 text-sm">
+                <span className="flex items-center space-x-1">
+                  <FaRulerCombined /><span>{l.area} sqft</span>
+                </span>
+                <span className="flex items-center space-x-1">
+                  <FaBed /><span>{l.bedrooms} bd</span>
+                </span>
+                <span className="flex items-center space-x-1">
+                  <FaBath /><span>{l.bathrooms} ba</span>
+                </span>
+              </div>
+
+              <p className="text-gray-700 mt-2">{l.description}</p>
+
+              <div className="flex flex-wrap gap-4 text-gray-600 text-sm mt-3">
+                <span>
+                  <strong>Owner:</strong> {l.owner}
+                </span>
+                <span>
+                  <strong>Buyer:</strong> {l.buyer || '–'}
+                </span>
+                <span>
+                  <strong>Price:</strong> {l.price} ETH
+                </span>
+                <span>
+                  <strong>Status:</strong> {l.status.replace(/_/g, ' ')}
+                </span>
+              </div>
             </div>
-            <button
-              disabled={busy}
-              onClick={() => handleInspect(l)}
-              className={`px-4 py-2 rounded text-white ${btnColor}`}
-            >
-              {btnLabel}
-            </button>
+
+            {/* Action Button */}
+            <div className="flex items-center justify-center p-6">
+              <button
+                onClick={() => handleInspect(l)}
+                disabled={busy}
+                className={`px-6 py-2 text-white font-medium rounded ${btnColor}`}
+              >
+                {btnLabel}
+              </button>
+            </div>
           </div>
         )
       })}

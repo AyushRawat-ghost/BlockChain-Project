@@ -1,69 +1,133 @@
-import React from 'react'
-import { Link } from 'react-router-dom'
+// src/components/Navigation.js
 
-// truncate e.g. 0x1234…9AbC
+import React from 'react'
+import { NavLink } from 'react-router-dom'
+import {
+  FiHome,
+  FiSearch,
+  FiPlusCircle,
+  FiList,
+  FiCheckCircle,
+  FiUser
+} from 'react-icons/fi'
+
+// truncate 0x1234…9AbC
 const truncate = addr =>
-  addr ? `${addr.slice(0,6)}…${addr.slice(-4)}` : ''
+  addr ? `${addr.slice(0, 6)}…${addr.slice(-4)}` : ''
 
 export default function Navigation({ account, inspector, lender }) {
-  const lc = s => (s||'').toLowerCase()
-  const isInspector = lc(account) === lc(inspector)
-  const isLender    = lc(account) === lc(lender)
+  const lc    = s => (s || '').toLowerCase()
+  const isIns = lc(account) === lc(inspector)
+  const isLen = lc(account) === lc(lender)
+
+  // shared classes for nav links
+  const baseLink     = 'flex items-center space-x-1 px-4 py-2 rounded-full transition'
+  const activeLink   = 'bg-white text-indigo-600 shadow'
+  const inactiveLink = 'text-gray-200 hover:bg-indigo-50 hover:text-indigo-200'
 
   return (
-    <header className="bg-white shadow">
-      <div className="container mx-auto flex items-center justify-between px-6 py-4">
+    <header className="relative">
+      {/* Full-bleed background */}
+      <img
+        src="/your-bg.jpg"
+        alt="Background"
+        className="absolute inset-0 w-full h-full object-cover"
+      />
+      {/* Dark overlay */}
+      <div className="absolute inset-0 bg-black/60"></div>
+
+      {/* Nav content */}
+      <div className="relative z-10 container mx-auto flex items-center justify-between px-6 py-4">
         {/* Logo */}
-        <Link to="/" className="flex items-center space-x-2">
+        <NavLink to="/" className="flex items-center space-x-2">
           <img src="/logo.png" alt="Logo" className="h-8 w-8" />
-          <span className="text-xl font-bold text-gray-800">RealEstate</span>
-        </Link>
+          <span className="text-white text-xl font-bold">RealEstate</span>
+        </NavLink>
 
         {/* Links */}
-        <nav className="flex space-x-4">
-          <Link to="/"      className="text-gray-600 hover:text-gray-900">Home</Link>
-          <Link to="/search" className="text-gray-600 hover:text-gray-900">Search</Link>
-          <Link to="/list"   className="text-gray-600 hover:text-gray-900">List Property</Link>
+        <nav className="flex items-center space-x-3">
+          <NavLink
+            to="/"
+            className={({ isActive }) =>
+              `${baseLink} ${isActive ? activeLink : inactiveLink}`
+            }
+          >
+            <FiHome /> <span>Home</span>
+          </NavLink>
 
-          {isInspector && (
-            <Link
+          <NavLink
+            to="/search"
+            className={({ isActive }) =>
+              `${baseLink} ${isActive ? activeLink : inactiveLink}`
+            }
+          >
+            <FiSearch /> <span>Search</span>
+          </NavLink>
+
+          <NavLink
+            to="/list"
+            className={({ isActive }) =>
+              `${baseLink} ${isActive ? activeLink : inactiveLink}`
+            }
+          >
+            <FiPlusCircle /> <span>List Property</span>
+          </NavLink>
+
+          <NavLink
+            to="/my-listings"
+            className={({ isActive }) =>
+              `${baseLink} ${isActive ? activeLink : inactiveLink}`
+            }
+          >
+            <FiList /> <span>My Listings</span>
+          </NavLink>
+
+          {isIns && (
+            <NavLink
               to="/inspect"
-              className="text-yellow-600 hover:text-yellow-800"
+              className={({ isActive }) =>
+                `${baseLink} ${isActive ? activeLink : inactiveLink}`
+              }
             >
-              Inspector
-            </Link>
+              <FiCheckCircle /> <span>Inspector</span>
+            </NavLink>
           )}
 
-          <Link to="/earnest" className="text-green-600 hover:text-green-800">
-            Buyer
-          </Link>
+          <NavLink
+            to="/earnest"
+            className={({ isActive }) =>
+              `${baseLink} ${isActive ? activeLink : inactiveLink}`
+            }
+          >
+            <FiUser /> <span>Buyer</span>
+          </NavLink>
 
-          {isLender && (
-            <Link
+          {isLen && (
+            <NavLink
               to="/approve"
-              className="text-purple-600 hover:text-purple-800"
+              className={({ isActive }) =>
+                `${baseLink} ${isActive ? activeLink : inactiveLink}`
+              }
             >
-              Lender
-            </Link>
+              <FiCheckCircle /> <span>Lender</span>
+            </NavLink>
           )}
-
-          <Link to="/finalize" className="text-blue-600 hover:text-blue-800">
-            Seller
-          </Link>
         </nav>
 
-        {/* Connect / Account */}
+        {/* Wallet connect / address */}
         {account ? (
           <button
             disabled
-            className="px-4 py-2 bg-green-600 text-white rounded"
+            className="px-4 py-2 bg-white text-indigo-600 rounded-full text-sm font-medium shadow"
           >
             {truncate(account)}
           </button>
         ) : (
           <button
-            onClick={() => window.ethereum.request({ method:'eth_requestAccounts' })}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            onClick={() =>
+              window.ethereum.request({ method: 'eth_requestAccounts' })
+            }
+            className="px-4 py-2 bg-white text-indigo-600 rounded-full text-sm font-medium shadow hover:bg-indigo-50 transition"
           >
             Connect Wallet
           </button>

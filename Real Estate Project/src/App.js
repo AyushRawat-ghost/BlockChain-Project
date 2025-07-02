@@ -1,8 +1,8 @@
 // src/components/App.js
 
 import React, { useEffect, useState } from 'react'
-import { ethers } from 'ethers'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { ethers } from 'ethers'
 
 // in App.js or any component inside src/components/
 import EscrowJson from './abi/Escrow.json'
@@ -17,6 +17,7 @@ import BuyerPanel       from './components/BuyerPanel'
 import LenderPanel      from './components/LenderPanel'
 import SellerPanel      from './components/SellerPanel'
 import PropertyDetail   from './components/PropertyDetail'
+import MyListings   from './components/MyListings'
 
 function useContractsInline() {
   const [escrow, setEscrow]       = useState(null)
@@ -35,15 +36,16 @@ function useContractsInline() {
     window.ethereum.on('accountsChanged', as => setAccount(as[0] || ''))
     window.ethereum.on('chainChanged', () => window.location.reload())
 
-    // Load contract + roles from config.json
+    // Load contract & roles from config
     provider.getNetwork().then(({ chainId }) => {
       const cfg = config[chainId]
       if (!cfg) throw new Error(`No config for chain ${chainId}`)
+
       setInspector(cfg.inspector)
       setLender(cfg.lender)
 
-      const abi      = Array.isArray(EscrowJson) ? EscrowJson : EscrowJson.abi
-      const contract = new ethers.Contract(cfg.escrow.address, abi, signer)
+      const abi       = Array.isArray(EscrowJson) ? EscrowJson : EscrowJson.abi
+      const contract  = new ethers.Contract(cfg.escrow.address, abi, signer)
       setEscrow(contract)
     })
   }, [])
@@ -53,6 +55,9 @@ function useContractsInline() {
 
 export default function App() {
   const { escrow, account, inspector, lender } = useContractsInline()
+
+  // helper to lowercase safely
+  const lc = s => (s || '').toLowerCase()
 
   return (
     <BrowserRouter>
@@ -64,19 +69,32 @@ export default function App() {
 
       <main className="container mx-auto py-6">
         <Routes>
-          {/* Public routes */}
-          <Route path="/" element={<Home />} />
+          {/* Home: show available properties + buy/reserve */}
+          <Route
+            path="/"
+            element={<Home escrow={escrow} account={account} />}
+          />
+
+          {/* Search */}
           <Route path="/search" element={<Search />} />
+
+          {/* List a new property */}
           <Route
             path="/list"
             element={<ListPropertyForm escrow={escrow} account={account} />}
           />
 
-          {/* Inspector-only */}
+          {/* My Listings: properties you own */}
+          <Route
+            path="/my-listings"
+            element={<MyListings account={account} />}
+          />
+
+          {/* Inspector panel */}
           <Route
             path="/inspect"
             element={
-              inspector.toLowerCase() === account.toLowerCase() ? (
+              lc(account) === lc(inspector) ? (
                 <InspectorPanel
                   escrow={escrow}
                   account={account}
@@ -90,17 +108,17 @@ export default function App() {
             }
           />
 
-          {/* Buyer panel */}
+          {/* Buyer panel (earnest deposits) */}
           <Route
             path="/earnest"
             element={<BuyerPanel escrow={escrow} account={account} />}
           />
 
-          {/* Lender approves & finalizes → SOLD */}
+          {/* Lender panel (approve & finalize sale) */}
           <Route
             path="/approve"
             element={
-              lender.toLowerCase() === account.toLowerCase() ? (
+              lc(account) === lc(lender) ? (
                 <LenderPanel
                   escrow={escrow}
                   account={account}
@@ -114,7 +132,7 @@ export default function App() {
             }
           />
 
-          {/* Property detail and buy */}
+          {/* Property Detail page with Buy/Reserved/Sold button */}
           <Route
             path="/property/:listingID"
             element={<PropertyDetail escrow={escrow} account={account} />}
