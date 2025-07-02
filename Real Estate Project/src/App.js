@@ -1,144 +1,126 @@
-// src/App.js
-import React, { useEffect, useState } from 'react';
-import { ethers } from 'ethers';
-import { auth } from './firebase';
-import { onAuthStateChanged, signInAnonymously } from 'firebase/auth';
+// src/components/App.js
 
-import Navigation       from './components/Navigation';
-import Search           from './components/Search';
-import ListPropertyForm from './components/ListPropertyForm';
-import Home             from './components/Home';
-import PropertyDetail   from './components/PropertyDetail';
-import InspectorPanel   from './components/InspectorPanel';
-import LenderPanel      from './components/LenderPanel';
+import React, { useEffect, useState } from 'react'
+import { ethers } from 'ethers'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
 
-import EscrowABI from './abis/Escrow.json';
-import config    from './config.json';
+// in App.js or any component inside src/components/
+import EscrowJson from './abi/Escrow.json'
+import config     from './config.json'
 
-const NETWORK   = '31337';
-const INSPECTOR = config[NETWORK].inspector.toLowerCase();
-const LENDER    = config[NETWORK].lender.toLowerCase();
+import Navigation       from './components/Navigation'
+import Home             from './components/Home'
+import Search           from './components/Search'
+import ListPropertyForm from './components/ListPropertyForm'
+import InspectorPanel   from './components/InspectorPanel'
+import BuyerPanel       from './components/BuyerPanel'
+import LenderPanel      from './components/LenderPanel'
+import SellerPanel      from './components/SellerPanel'
+import PropertyDetail   from './components/PropertyDetail'
+
+function useContractsInline() {
+  const [escrow, setEscrow]       = useState(null)
+  const [account, setAccount]     = useState('')
+  const [inspector, setInspector] = useState('')
+  const [lender, setLender]       = useState('')
+
+  useEffect(() => {
+    if (!window.ethereum) return
+
+    const provider = new ethers.providers.Web3Provider(window.ethereum)
+    const signer   = provider.getSigner()
+
+    // Track connected account
+    signer.getAddress().then(a => setAccount(a)).catch(() => {})
+    window.ethereum.on('accountsChanged', as => setAccount(as[0] || ''))
+    window.ethereum.on('chainChanged', () => window.location.reload())
+
+    // Load contract + roles from config.json
+    provider.getNetwork().then(({ chainId }) => {
+      const cfg = config[chainId]
+      if (!cfg) throw new Error(`No config for chain ${chainId}`)
+      setInspector(cfg.inspector)
+      setLender(cfg.lender)
+
+      const abi      = Array.isArray(EscrowJson) ? EscrowJson : EscrowJson.abi
+      const contract = new ethers.Contract(cfg.escrow.address, abi, signer)
+      setEscrow(contract)
+    })
+  }, [])
+
+  return { escrow, account, inspector, lender }
+}
 
 export default function App() {
-  const [account, setAccount]         = useState(null);
-  const [escrow, setEscrow]           = useState(null);
-  const [view, setView]               = useState('home');  // 'home' | 'list'
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedProperty, setSelectedProperty] = useState(null);
-
-  // 1) Firebase anonymous auth
-  useEffect(() => {
-    onAuthStateChanged(auth, (user) => {
-      if (!user) signInAnonymously(auth).catch(console.error);
-    });
-  }, []);
-
-  // 2) Web3 init + enforce network
-  useEffect(() => {
-    if (!window.ethereum) {
-      console.error('MetaMask not found');
-      return;
-    }
-
-    const init = async () => {
-      const provider = new ethers.providers.Web3Provider(window.ethereum, 'any');
-      const { chainId } = await provider.getNetwork();
-
-      if (chainId !== Number(NETWORK)) {
-        try {
-          await window.ethereum.request({
-            method: 'wallet_switchEthereumChain',
-            params: [{ chainId: ethers.utils.hexValue(Number(NETWORK)) }],
-          });
-        } catch {
-          alert('⚠️ Please switch MetaMask to Localhost:31337');
-          return;
-        }
-      }
-
-      await provider.send('eth_requestAccounts', []);
-      const signer = provider.getSigner();
-      const addr   = await signer.getAddress();
-      setAccount(addr.toLowerCase());
-
-      const esc = new ethers.Contract(
-        config[NETWORK].escrow.address,
-        EscrowABI.abi,
-        signer
-      );
-      setEscrow(esc);
-
-      // reload on network/account change
-      window.ethereum.on('chainChanged', () => window.location.reload());
-      window.ethereum.on('accountsChanged', () => window.location.reload());
-    };
-
-    init().catch(console.error);
-  }, []);
-
-  // 3) Loading state
-  if (!escrow) {
-    return (
-      <div className="h-screen flex items-center justify-center">
-        <p className="text-gray-600">⏳ Connecting to blockchain…</p>
-      </div>
-    );
-  }
-
-  const role       = account;
-  const handleBack = () => {
-    setSelectedProperty(null);
-    setView('home');
-  };
+  const { escrow, account, inspector, lender } = useContractsInline()
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <BrowserRouter>
       <Navigation
         account={account}
-        onSellClick={() => { setView('list'); setSelectedProperty(null); }}
-        selectedProperty={selectedProperty}
-        onBack={handleBack}
+        inspector={inspector}
+        lender={lender}
       />
 
-      <Search
-        searchQuery={searchQuery}
-        onSearch={setSearchQuery}
-      />
-
-      <main className="p-6 max-w-6xl mx-auto">
-        {view === 'list' && (
-          <ListPropertyForm escrow={escrow} account={account} />
-        )}
-
-        {view === 'home' && !selectedProperty && role === INSPECTOR && (
-          <InspectorPanel escrow={escrow} account={account} />
-        )}
-
-        {view === 'home' && !selectedProperty && role === LENDER && (
-          <LenderPanel escrow={escrow} account={account} />
-        )}
-
-        {view === 'home' && !selectedProperty && role !== INSPECTOR && role !== LENDER && (
-          <Home
-            escrow={escrow}
-            account={account}
-            searchQuery={searchQuery}
-            onSelect={(property) => {
-              setSelectedProperty(property);
-              setView('home');
-            }}
+      <main className="container mx-auto py-6">
+        <Routes>
+          {/* Public routes */}
+          <Route path="/" element={<Home />} />
+          <Route path="/search" element={<Search />} />
+          <Route
+            path="/list"
+            element={<ListPropertyForm escrow={escrow} account={account} />}
           />
-        )}
 
-        {view === 'home' && selectedProperty && (
-          <PropertyDetail
-            property={selectedProperty}
-            escrow={escrow}
-            account={account}
-            onBack={handleBack}
+          {/* Inspector-only */}
+          <Route
+            path="/inspect"
+            element={
+              inspector.toLowerCase() === account.toLowerCase() ? (
+                <InspectorPanel
+                  escrow={escrow}
+                  account={account}
+                  inspector={inspector}
+                />
+              ) : (
+                <p className="p-6 text-center text-red-600">
+                  🚫 You are not authorized to inspect.
+                </p>
+              )
+            }
           />
-        )}
+
+          {/* Buyer panel */}
+          <Route
+            path="/earnest"
+            element={<BuyerPanel escrow={escrow} account={account} />}
+          />
+
+          {/* Lender approves & finalizes → SOLD */}
+          <Route
+            path="/approve"
+            element={
+              lender.toLowerCase() === account.toLowerCase() ? (
+                <LenderPanel
+                  escrow={escrow}
+                  account={account}
+                  lender={lender}
+                />
+              ) : (
+                <p className="p-6 text-center text-red-600">
+                  🚫 You are not the lender.
+                </p>
+              )
+            }
+          />
+
+          {/* Property detail and buy */}
+          <Route
+            path="/property/:listingID"
+            element={<PropertyDetail escrow={escrow} account={account} />}
+          />
+        </Routes>
       </main>
-    </div>
-  );
+    </BrowserRouter>
+  )
 }

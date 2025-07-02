@@ -1,143 +1,123 @@
 // src/components/PropertyDetail.js
 
-import React, { useState, useEffect } from 'react';
-import { ethers }                    from 'ethers';
-import { doc, updateDoc }            from 'firebase/firestore';
-import { db }                        from '../firebase';
+import React, { useEffect, useState } from 'react'
+import { useParams } from 'react-router-dom'
+import { ethers } from 'ethers'
+import { db } from '../firebase'
+import {
+  collection,
+  query,
+  where,
+  onSnapshot,
+  updateDoc,
+  doc
+} from 'firebase/firestore'
 
-export default function PropertyDetail({ property, escrow, account, onBack }) {
-  const [loading, setLoading]         = useState(false);
-  const [chainPrice, setChainPrice]   = useState(null);
-  const [chainStatus, setChainStatus] = useState(null);
-  const [inspectionPassed, setInspectionPassed] = useState(false);
+export default function PropertyDetail({ escrow, account }) {
+  const { listingID } = useParams()
+  const [listing, setListing] = useState(null)
+  const [busy, setBusy] = useState(false)
 
-  // Load on-chain price, status, inspection flag
+  // Fetch listing by listingID from Firestore
   useEffect(() => {
-    if (!escrow || property?.listingID == null) return;
-    (async () => {
-      try {
-        const [p, s, passed] = await Promise.all([
-          escrow.purchasePrice(property.listingID),
-          escrow.propertyStatus(property.listingID),
-          escrow.inspectionPassed(property.listingID)
-        ]);
-        setChainPrice(p);
-        setChainStatus(typeof s.toNumber === 'function' ? s.toNumber() : Number(s));
-        setInspectionPassed(passed);
-      } catch (err) {
-        console.error('On-chain load error:', err);
+    const q = query(
+      collection(db, 'listings'),
+      where('listingID', '==', listingID)
+    )
+    const unsub = onSnapshot(q, snap => {
+      if (snap.docs.length > 0) {
+        setListing({ id: snap.docs[0].id, ...snap.docs[0].data() })
       }
-    })();
-  }, [escrow, property]);
+    })
+    return unsub
+  }, [listingID])
 
-  // Format price for display
-  const displayPrice = chainPrice
-    ? ethers.utils.formatEther(chainPrice)
-    : property.price
-      ? ethers.utils.formatEther(ethers.BigNumber.from(property.price))
-      : '0';
-
-  // Handle the full-price purchase
   const handleBuy = async () => {
-    if (account.toLowerCase() === property.owner.toLowerCase()) {
-      return alert("You’re the seller of this listing");
-    }
-    if (!chainPrice) {
-      return alert("Loading on-chain price…");
+    if (!escrow || !account || !listing) {
+      return alert('⚠️ Wallet or contract not ready.')
     }
 
-    setLoading(true);
+    setBusy(true)
     try {
-      // Send the full purchasePrice as msg.value
-      const tx = await escrow.depositEarnest(
-        property.listingID,
-        account,
-        { value: chainPrice, gasLimit: 300_000 }
-      );
-      await tx.wait();
+      const value = ethers.utils.parseEther(listing.price.toString())
+      const tx = await escrow
+        .connect(escrow.signer)
+        .depositEarnest(listingID, { value })
+      await tx.wait()
 
-      // Update Firestore with the buyer
-      await updateDoc(doc(db, 'listings', property.id), { buyer: account });
-      alert(`🎉 Reserved & paid ${displayPrice} ETH`);
+      await updateDoc(doc(db, 'listings', listing.id), {
+        status: 'EARNEST_PAID'
+      })
+
+      alert('✅ You have deposited earnest. Await lender approval.')
     } catch (err) {
-      console.error('Buy error:', err);
-      const reason =
-        err.data?.message ||
-        err.error?.message ||
-        err.reason ||
-        err.message ||
-        'Transaction failed';
-      alert(`🚨 ${reason}`);
+      console.error('Purchase failed', err)
+      alert(err.error?.data?.message || err.message)
     } finally {
-      setLoading(false);
+      setBusy(false)
     }
-  };
-
-  // Pre-conditions
-  if (chainStatus !== 2) {
-    return (
-      <div className="max-w-4xl mx-auto p-6 bg-white rounded shadow">
-        <button onClick={onBack} className="text-blue-600 mb-4">← Back</button>
-        <p className="text-yellow-600">⏳ Listing not yet verified on-chain</p>
-      </div>
-    );
-  }
-  if (!inspectionPassed) {
-    return (
-      <div className="max-w-4xl mx-auto p-6 bg-white rounded shadow">
-        <button onClick={onBack} className="text-blue-600 mb-4">← Back</button>
-        <p className="text-yellow-600">⏳ Waiting for inspection to pass</p>
-      </div>
-    );
   }
 
-  // Main UI
+  if (!listing) {
+    return (
+      <div className="p-6 text-center text-gray-600">
+        Loading property…
+      </div>
+    )
+  }
+
+  const isOwner =
+    account && listing.owner?.toLowerCase() === account.toLowerCase()
+
   return (
-    <div className="max-w-4xl mx-auto bg-white p-6 rounded shadow">
-      <button onClick={onBack} className="text-blue-600 mb-4">← Back</button>
+    <main className="px-6 py-8 max-w-3xl mx-auto space-y-6">
+      <h2 className="text-3xl font-bold">{listing.title}</h2>
+      <p className="text-gray-600">{listing.address}</p>
 
-      <h2 className="text-2xl font-bold mb-2">{property.title}</h2>
-      <p className="text-gray-700 mb-1">{property.address}</p>
-      <p className="text-gray-600 mb-4">{property.description}</p>
-
-      <div className="flex space-x-4 text-sm mb-4">
-        <span>🛏️ {property.bedrooms} bed{property.bedrooms>1?'s':''}</span>
-        <span>🛁 {property.bathrooms} bath{property.bathrooms>1?'s':''}</span>
-        <span>ID: {property.listingID}</span>
+      <div className="h-60 bg-gray-200 flex items-center justify-center">
+        <span className="text-gray-500">Image Preview</span>
       </div>
 
-      <img
-        src={property.tokenURI}
-        alt={property.title}
-        className="h-64 w-full object-cover rounded mb-4"
-      />
-
-      <div className="flex justify-between items-center mb-6">
-        <span className="text-green-700 font-bold">
-          {displayPrice} ETH
-        </span>
-        <span className="text-sm text-gray-500">
-          Verified & Inspection Passed
-        </span>
+      <div className="grid grid-cols-2 gap-4 text-lg">
+        <div>
+          <strong>Area:</strong> {listing.area} sq ft
+        </div>
+        <div>
+          <strong>Price:</strong> {listing.price} ETH
+        </div>
+        <div>
+          <strong>Bedrooms:</strong> {listing.bedrooms}
+        </div>
+        <div>
+          <strong>Bathrooms:</strong> {listing.bathrooms}
+        </div>
       </div>
 
-      <button
-        onClick={handleBuy}
-        disabled={loading || Boolean(property.buyer)}
-        className={`w-full py-2 rounded text-white ${
-          loading
-            ? 'bg-gray-400'
-            : property.buyer
-              ? 'bg-gray-500 cursor-not-allowed'
-              : 'bg-blue-600 hover:bg-blue-700'
-        }`}
-      >
-        {property.buyer
-          ? 'Already Reserved'
-          : loading
-            ? 'Processing…'
-            : `Reserve & Pay ${displayPrice} ETH`}
-      </button>
-    </div>
-  );
+      <div>
+        <h3 className="font-semibold">Description</h3>
+        <p className="text-gray-700 mt-1">{listing.description}</p>
+      </div>
+
+      <div className="pt-4 border-t">
+        {isOwner ? (
+          <button
+            disabled
+            className="w-full py-2 bg-gray-400 text-white rounded"
+          >
+            You listed this property
+          </button>
+        ) : (
+          <button
+            onClick={handleBuy}
+            disabled={busy}
+            className={`w-full py-2 text-white rounded ${
+              busy ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700'
+            }`}
+          >
+            {busy ? '⏳ Processing…' : 'Buy Property'}
+          </button>
+        )}
+      </div>
+    </main>
+  )
 }

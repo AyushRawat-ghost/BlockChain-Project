@@ -1,73 +1,60 @@
 // src/components/Home.js
-import React, { useEffect, useState } from 'react';
-import { collection, onSnapshot } from 'firebase/firestore';
-import { db } from '../firebase';
 
-export default function Home({ onSelect, searchQuery = '' }) {
-  const [listings, setListings] = useState([]);
+import React, { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
+import { db } from '../firebase'
+import { collection, query, where, onSnapshot } from 'firebase/firestore'
 
-  // Subscribe to all VERIFIED listings
+export default function Home() {
+  const [listings, setListings] = useState([])
+
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'listings'), snap => {
-      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      const verified = docs.filter(l => l.status === 'VERIFIED');
-      setListings(verified);
-    });
-    return () => unsub();
-  }, []);
-
-  // Apply search filter
-  const filtered = searchQuery
-    ? listings.filter(l => {
-        const q = searchQuery.toLowerCase().trim();
-        return (
-          l.listingID.toString() === q ||
-          l.title.toLowerCase().includes(q) ||
-          l.address.toLowerCase().includes(q)
-        );
-      })
-    : listings;
-
-  if (filtered.length === 0) {
-    return (
-      <p className="text-gray-600">
-        {searchQuery ? `No results for "${searchQuery}"` : 'No properties available.'}
-      </p>
-    );
-  }
+    // Only show properties the inspector has VERIFIED
+    const q = query(
+      collection(db, 'listings'),
+      where('status', '==', 'VERIFIED')
+    )
+    const unsub = onSnapshot(q, snapshot => {
+      const docs = snapshot.docs.map(doc => ({
+        id:        doc.id,
+        listingID: doc.data().listingID,
+        title:     doc.data().title,
+        address:   doc.data().address,
+        price:     doc.data().price,
+        owner:     doc.data().owner
+      }))
+      setListings(docs)
+    })
+    return unsub
+  }, [])
 
   return (
-    <div className="max-w-6xl mx-auto p-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-      {filtered.map(l => {
-        const isReserved = Boolean(l.buyer);
-        return (
-          <div
+    <main className="px-6 py-8 max-w-5xl mx-auto">
+      <h2 className="text-3xl font-bold mb-6">Available Properties</h2>
+      {listings.length === 0 && (
+        <p className="text-center text-gray-500">
+          No properties verified yet.
+        </p>
+      )}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {listings.map(l => (
+          <Link
             key={l.id}
-            className="relative cursor-pointer overflow-hidden rounded-lg shadow hover:shadow-lg transition"
-            onClick={() => !isReserved && onSelect(l)}
+            to={`/property/${l.listingID}`}
+            className="block border rounded overflow-hidden hover:shadow-lg transition"
           >
-            <img
-              src={l.tokenURI}
-              alt={l.title}
-              className="w-full h-48 object-cover"
-            />
-            <div className="p-4 bg-white">
-              <h3 className="text-lg font-semibold">{l.title}</h3>
-              <p className="text-sm text-gray-600 mb-2">{l.address}</p>
-              <div className="flex justify-between items-center">
-                <span className="text-green-700 font-bold">{l.price} ETH</span>
-                <span className="text-xs text-gray-500">ID: {l.listingID}</span>
-              </div>
+            <div className="h-40 bg-gray-200 flex items-center justify-center">
+              {/* Placeholder image */}
+              <span className="text-gray-500">Image</span>
             </div>
-
-            {isReserved && (
-              <div className="absolute inset-0 bg-yellow-200 bg-opacity-80 flex items-center justify-center text-xl font-bold">
-                Reserved
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
+            <div className="p-4">
+              <h3 className="text-xl font-semibold">#{l.listingID} – {l.title}</h3>
+              <p className="text-gray-600">{l.address}</p>
+              <p className="mt-2 text-lg font-bold">{l.price} ETH</p>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </main>
+  )
 }

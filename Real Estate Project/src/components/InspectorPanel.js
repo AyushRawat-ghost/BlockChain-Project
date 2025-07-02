@@ -1,158 +1,135 @@
-// src/components/InspectorPanel.js
-import React, { useEffect, useState } from 'react';
-import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
-import { db } from '../firebase';
-import config from '../config.json';
+import React, { useEffect, useState } from 'react'
+import {
+  collection,
+  query,
+  where,
+  onSnapshot,
+  updateDoc,
+  doc
+} from 'firebase/firestore'
+import { db } from '../firebase'
 
-const CHAIN     = '31337';
-const INSPECTOR = config[CHAIN].inspector.toLowerCase();
-const STATUS_NAMES = {
-  0: 'PROPOSED',
-  1: 'PENDING_INSPECTION',
-  2: 'VERIFIED',
-  3: 'REJECTED',
-  4: 'SOLD',
-};
+export default function InspectorPanel({ escrow, account, inspector }) {
+  const [listings, setListings] = useState([])
+  const [busyMap, setBusyMap]   = useState({})
 
-export default function InspectorPanel({ escrow, account }) {
-  const [listings, setListings] = useState([]);
+  const isInspector =
+    inspector &&
+    account &&
+    inspector.toLowerCase() === account.toLowerCase()
 
-  const toNumber = raw => {
-    if (!raw) return NaN;
-    if (typeof raw.toNumber === 'function') return raw.toNumber();
-    if (typeof raw === 'bigint') return Number(raw);
-    return Number(raw);
-  };
-
-  // Load both PENDING_INSPECTION and VERIFIED docs, then read on-chain
-  const loadListings = async () => {
-    const snap = await getDocs(collection(db, 'listings'));
-    const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    const candidates = docs.filter(l =>
-      ['PENDING_INSPECTION', 'VERIFIED'].includes(l.status)
-    );
-
-    const withOnChain = await Promise.all(
-      candidates.map(async l => {
-        let chainStatus = 'ERR';
-        let passed      = false;
-        try {
-          chainStatus = toNumber(await escrow.propertyStatus(l.listingID));
-          passed      = await escrow.inspectionPassed(l.listingID);
-        } catch {}
-        return { ...l, chainStatus, passed };
-      })
-    );
-    setListings(withOnChain);
-  };
-
+  // Subscribe to PROPOSED & PENDING_INSPECTION docs
   useEffect(() => {
-    loadListings();
-  }, [escrow, account]);
+    if (!escrow || !isInspector) return
 
-  if (account?.toLowerCase() !== INSPECTOR) {
-    return (
-      <p className="p-6 text-center text-red-600">
-        🚫 Access denied. Only inspector ({INSPECTOR}) may inspect.
-      </p>
-    );
+    const q = query(
+      collection(db, 'listings'),
+      where('status', 'in', ['PROPOSED', 'PENDING_INSPECTION'])
+    )
+    const unsub = onSnapshot(q, snap =>
+      setListings(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    )
+    return unsub
+  }, [escrow, isInspector])
+
+  const handleInspect = async listing => {
+    const { id: docId, listingID, status } = listing
+    setBusyMap(m => ({ ...m, [docId]: true }))
+
+    try {
+      if (status === 'PROPOSED') {
+        // STEP 1: on-chain updateInspection → PENDING_INSPECTION
+        const tx = await escrow
+          .connect(escrow.signer)
+          .updateInspection(listingID, true)
+        await tx.wait()
+
+        await updateDoc(doc(db, 'listings', docId), {
+          status: 'PENDING_INSPECTION'
+        })
+        console.log(`🔄 #${listingID} → PENDING_INSPECTION`)
+      } else {
+        // STEP 2: just mark as VERIFIED off-chain
+        await updateDoc(doc(db, 'listings', docId), {
+          status: 'VERIFIED'
+        })
+        console.log(`✅ #${listingID} → VERIFIED`)
+      }
+    } catch (err) {
+      console.error('Inspection error:', err)
+      alert(err.error?.data?.message || err.message)
+    } finally {
+      setBusyMap(m => {
+        const nxt = { ...m }
+        delete nxt[docId]
+        return nxt
+      })
+    }
   }
 
-  // Handlers
-  const handleVerify = async (listingID, docId) => {
-    try {
-      await (await escrow.verifyListing(listingID)).wait();
-      await updateDoc(doc(db, 'listings', docId), { status: 'VERIFIED' });
-      loadListings();
-    } catch (e) {
-      console.error(e);
-      alert(e.reason || e.message);
-    }
-  };
+  if (!escrow) {
+    return (
+      <p className="p-6 text-center text-gray-500">
+        🔌 Connecting to contract…
+      </p>
+    )
+  }
 
-  const handlePass = async (listingID) => {
-    try {
-      await (await escrow.updateInspectionStatus(listingID, true)).wait();
-      loadListings();
-    } catch (e) {
-      console.error(e);
-      alert(e.reason || e.message);
-    }
-  };
+  if (!isInspector) {
+    return (
+      <p className="p-6 text-center text-red-600">
+        🚫 You are not authorized (Inspector only).
+      </p>
+    )
+  }
 
-  const handleReject = async (docId) => {
-    if (!window.confirm('Reject this listing?')) return;
-    try {
-      await updateDoc(doc(db, 'listings', docId), { status: 'REJECTED' });
-      loadListings();
-    } catch (e) {
-      console.error(e);
-      alert(e.reason || e.message);
-    }
-  };
-
-  // Split into two lists
-  const pendingVerify = listings.filter(l => l.status === 'PENDING_INSPECTION');
-  const pendingPass   = listings.filter(
-    l => l.status === 'VERIFIED' && !l.passed
-  );
+  if (listings.length === 0) {
+    return (
+      <p className="p-6 text-center text-gray-500">
+        No listings pending inspection.
+      </p>
+    )
+  }
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-8">
-      {/* Section 1: Verify */}
-      <div>
-        <h2 className="text-2xl font-bold mb-4">Pending Verification</h2>
-        {pendingVerify.length === 0 && (
-          <p className="text-gray-600">No listings to verify.</p>
-        )}
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {pendingVerify.map(l => (
-            <div key={l.id} className="bg-white rounded shadow p-4 flex flex-col">
-              <img src={l.tokenURI} className="h-32 w-full object-cover mb-2" />
-              <h3 className="font-semibold">{l.title}</h3>
-              <p className="text-sm mb-2">{l.address}</p>
-              <button
-                onClick={() => handleVerify(l.listingID, l.id)}
-                className="mt-auto bg-blue-600 hover:bg-blue-700 text-white py-2 rounded"
-              >
-                ✅ Verify
-              </button>
-              <button
-                onClick={() => handleReject(l.id)}
-                className="mt-2 bg-red-600 hover:bg-red-700 text-white py-2 rounded"
-              >
-                ❌ Reject
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
+    <div className="max-w-3xl mx-auto p-6 bg-white rounded shadow space-y-4">
+      <h2 className="text-2xl font-bold text-center">🕵️ Inspector Panel</h2>
 
-      {/* Section 2: Pass Inspection */}
-      <div>
-        <h2 className="text-2xl font-bold mb-4">Pending Pass Inspection</h2>
-        {pendingPass.length === 0 && (
-          <p className="text-gray-600">No listings awaiting inspection pass.</p>
-        )}
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {pendingPass.map(l => (
-            <div key={l.id} className="bg-white rounded shadow p-4 flex flex-col">
-              <img src={l.tokenURI} className="h-32 w-full object-cover mb-2" />
-              <h3 className="font-semibold">{l.title}</h3>
-              <p className="text-sm mb-2">{l.address}</p>
-              <p className="text-sm mb-4">
-                On-chain status: {l.chainStatus} ({STATUS_NAMES[l.chainStatus]})
+      {listings.map(l => {
+        const busy      = !!busyMap[l.id]
+        const isProposed = l.status === 'PROPOSED'
+        const btnColor   = busy
+          ? 'bg-gray-400'
+          : isProposed
+          ? 'bg-yellow-600 hover:bg-yellow-700'
+          : 'bg-green-600 hover:bg-green-700'
+        const btnLabel = busy
+          ? '⏳ Processing…'
+          : isProposed
+          ? '📝 Acknowledge Listing'
+          : '✔️ Finalize Verification'
+
+        return (
+          <div
+            key={l.id}
+            className="flex justify-between items-center p-4 border rounded"
+          >
+            <div>
+              <p className="font-semibold">
+                #{l.listingID} – {l.title}
               </p>
-              <button
-                onClick={() => handlePass(l.listingID)}
-                className="mt-auto bg-green-600 hover:bg-green-700 text-white py-2 rounded"
-              >
-                🛠️ Pass Inspection
-              </button>
+              <p className="text-sm text-gray-600">Status: {l.status}</p>
             </div>
-          ))}
-        </div>
-      </div>
+            <button
+              disabled={busy}
+              onClick={() => handleInspect(l)}
+              className={`px-4 py-2 rounded text-white ${btnColor}`}
+            >
+              {btnLabel}
+            </button>
+          </div>
+        )
+      })}
     </div>
-  );
+  )
 }
