@@ -84,8 +84,8 @@ export default function ListPropertyForm({ escrow, account }) {
         area:        '',
         price:       '',
         tokenURI:    '',
-        bedrooms:    1,
-        bathrooms:   1,
+        bedrooms:    0,
+        bathrooms:   0,
         description: ''
       })
     } catch (err) {
@@ -135,7 +135,7 @@ export default function ListPropertyForm({ escrow, account }) {
             <input
               name={name}
               type="number"
-              min="1"
+              min="0"
               required
               value={form[name]}
               onChange={handleChange}

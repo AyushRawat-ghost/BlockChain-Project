@@ -49,7 +49,9 @@ contract RealEstate is ERC721URIStorage, Ownable {
         escrowMinter = msg.sender;
     }
 
-    function setEscrowMinter(address _escrowMinter) external onlyOwner {
+    function setEscrowMinter(
+        address _escrowMinter
+    ) external onlyOwner {
         require(_escrowMinter != address(0), "RealEstate: zero minter");
         escrowMinter = _escrowMinter;
     }

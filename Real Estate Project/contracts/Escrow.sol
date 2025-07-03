@@ -218,13 +218,6 @@
 // }
 
 
-//     function updateInspectionStatus(
-//         uint256 _nftID,
-//         bool _passed
-//     ) public onlyInspector {
-//         require(propertyStatus[_nftID] == ListingStatus.VERIFIED, "Listing is not verified");
-//         inspectionPassed[_nftID] = _passed;
-//     }
 
 //     function approveSale(
 //         uint256 _nftID,
@@ -236,106 +229,7 @@
 //         approval[_nftID][_party] = true;
 //     }
 
-//     // function finalizeSale(
-//     //     uint256 _nftID
-//     // ) public onlyLender {
-//     //     require(propertyStatus[_nftID] == ListingStatus.VERIFIED, "Listing is not verified");
-//     //     require(inspectionPassed[_nftID], "Inspection has not passed");
-//     //     // require(approval[_nftID][buyer[_nftID]], "Buyer has not approved");
-//     //     // require(approval[_nftID][sellers[_nftID]], "Seller has not approved");
-//     //     require(approval[_nftID][lender], "Lender has not approved");
-//     //     require(buyer[_nftID] != address(0), "Buyer has not deposited earnest");
-//     //     require(address(this).balance >= purchasePrice[_nftID], "Insufficient funds in escrow to finalize sale");
 
-//     //     realEstate.transferFrom(sellers[_nftID], buyer[_nftID], _nftID);
-        
-//     //     (bool success, ) = payable(sellers[_nftID]).call{value: purchasePrice[_nftID]}("");
-//     //     require(success, "Failed to transfer purchase price to seller");
-
-//     //     propertyStatus[_nftID] = ListingStatus.SOLD;
-//     //     isListed[_nftID] = false;
-//     //     emit SaleFinalized(_nftID, buyer[_nftID], sellers[_nftID], purchasePrice[_nftID]);
-//     // }
-
-
-//     function finalizeSale(
-//         uint256 _nftID
-//     ) public onlyLender {
-//     // 1) Listing must have been verified by the inspector
-//     require(
-//         propertyStatus[_nftID] == ListingStatus.VERIFIED,
-//         "Listing is not verified"
-//     );
-
-//     // 2) The on-chain inspection flag must be true
-//     require(
-//         inspectionPassed[_nftID],
-//         "Inspection has not passed"
-//     );
-
-//     // 3) The lender must have explicitly approved the sale
-//     require(
-//         approval[_nftID][lender],
-//         "Lender has not approved"
-//     );
-
-//     require(
-//         buyer[_nftID] != address(0),
-//         "Buyer has not deposited earnest"
-//     );
-//     require(
-//         address(this).balance >= purchasePrice[_nftID],
-//         "Insufficient funds in escrow to finalize"
-//     );
-//     realEstate.transferFrom(
-//         sellers[_nftID],
-//         buyer[_nftID],
-//         _nftID
-//     );
-//     (bool success, ) = payable(sellers[_nftID]).call{
-//         value: purchasePrice[_nftID]
-//     }("");
-//     require(
-//         success,
-//         "Failed to transfer purchase price to seller"
-//     );
-//     propertyStatus[_nftID] = ListingStatus.SOLD;
-//     isListed[_nftID]      = false;
-
-//     emit SaleFinalized(
-//         _nftID,
-//         buyer[_nftID],
-//         sellers[_nftID],
-//         purchasePrice[_nftID]
-//     );
-// }
-
-
-//     function cancelSale(
-//         uint256 _nftID
-//     ) public {
-//         require(propertyStatus[_nftID] == ListingStatus.VERIFIED, "Listing is not verified");
-//         require(!inspectionPassed[_nftID], "Inspection has passed");
-
-//         // Authorization check
-//         require(msg.sender == buyer[_nftID] || msg.sender == sellers[_nftID] || msg.sender == inspector, "Only buyer, seller, or inspector can cancel");
-        
-//         // Buyer and earnest checks
-//         require(buyer[_nftID] != address(0), "No buyer associated with this NFT for refund");
-//         require(escrowAmount[_nftID] > 0, "No earnest money deposited for this NFT to refund");
-
-//         // Balance check
-//         require(address(this).balance >= escrowAmount[_nftID], "Insufficient escrow balance for refund");
-
-//         (bool success, ) = payable(buyer[_nftID]).call{value: escrowAmount[_nftID]}("");
-//         require(success, "Failed to refund earnest money");
-        
-//         propertyStatus[_nftID] = ListingStatus.REJECTED; 
-//         isListed[_nftID] = false;
-
-//         emit SaleCancelled(_nftID);
-//     }
-    
 //     receive() external payable {}
 
 //     function getBalance() public view returns (uint256) {
@@ -347,7 +241,7 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/utils/Counters.sol";
 
-/// @notice Minimal interface to your RealEstate ERC721
+/// @notice Minimal interface to  RealEstate ERC721
 interface IRealEstate {
     function mint(address to, uint256 tokenId, string calldata tokenURI) external;
     function transferFrom(address from, address to, uint256 tokenId) external;
@@ -361,7 +255,13 @@ contract Escrow {
     address    public inspector;
     address    public lender;
 
-    enum ListingStatus { PROPOSED, PENDING_INSPECTION, VERIFIED,EARNEST_PAID, REJECTED, SOLD }
+    enum ListingStatus { 
+        PROPOSED,
+        PENDING_INSPECTION,
+        VERIFIED,EARNEST_PAID, 
+        REJECTED, 
+        SOLD 
+    }
 
     mapping(uint256 => address)                 public sellers;
     mapping(uint256 => ListingStatus)           public propertyStatus;
@@ -378,21 +278,49 @@ contract Escrow {
         address indexed seller,
         uint256 purchasePrice
     );
-    event DepositEarnest(uint256 indexed listingID, address indexed buyer, uint256 amount);
-    event InspectionUpdated(uint256 indexed listingID, bool passed);
-    event ApprovalUpdated(uint256 indexed listingID, address indexed participant);
-    event SaleFinalized(uint256 indexed listingID);
-      event SaleCancelled(
+    event DepositEarnest(
+        uint256 indexed listingID, 
+        address indexed buyer, 
+        uint256 amount
+    );
+    event InspectionUpdated(
+        uint256 indexed listingID, 
+        bool passed
+    );
+    event ApprovalUpdated(
+        uint256 indexed listingID, 
+        address indexed participant
+    );
+    event SaleFinalized(
+        uint256 indexed listingID
+    );
+    event SaleCancelled(
         uint256 indexed nftID,
         address indexed refundedTo,
         uint256 amount
     );
 
 
-    modifier onlyBuyer(uint256 id)  { require(msg.sender == buyer[id],  "Only buyer");    _; }
-    modifier onlySeller(uint256 id) { require(msg.sender == sellers[id],"Only seller");   _; }
-    modifier onlyInspector()        { require(msg.sender == inspector,   "Only inspector"); _; }
-    modifier onlyLender()           { require(msg.sender == lender,      "Only lender");    _; }
+    modifier onlyBuyer(
+        uint256 id
+    ){
+        require(msg.sender == buyer[id],  "Only buyer");
+        _;
+    }
+    modifier onlySeller(
+        uint256 id
+    ) { 
+        require(msg.sender == sellers[id],"Only seller");  
+        _;
+    }
+    modifier onlyInspector(){ 
+        require(msg.sender == inspector,   "Only inspector"); 
+        _; 
+    }
+    modifier onlyLender()           { 
+        require(msg.sender == lender,      "Only lender");
+        _; 
+    }
 
     constructor(
         address _realEstateAddress,
@@ -521,4 +449,9 @@ function rejectSale(uint256 _nftID) external{
 
     /// @notice Fallback to receive lender’s payment
     receive() external payable {}
+
+/// @notice Get the balance of the escrow contract
+        function getBalance() public view returns (uint256) {
+        return address(this).balance;
+    }
 }
