@@ -1,5 +1,9 @@
 import { ethers } from 'ethers';
 import { useEffect, useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Button } from "./ui/button";
+import { Badge } from "./ui/badge";
+import { motion } from "framer-motion";
 
 import close from '../assets/close.svg';
 
@@ -116,77 +120,74 @@ const Home = ({ home, provider, account, escrow, togglePop }) => {
     }, [hasSold])
 
     return (
-        <div className="home">
-            <div className='home__details'>
-                <div className="home__image">
-                    <img src={home.image} alt="Home" />
+        <motion.div 
+            className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+        >
+            <Card className="w-full max-w-4xl flex flex-col md:flex-row overflow-hidden shadow-2xl rounded-3xl border-0 bg-white/95">
+                <div className="md:w-1/2 flex flex-col items-center justify-center bg-gradient-to-br from-primary/80 to-secondary/80 p-8">
+                    <img src={home.image} alt="Home" className="rounded-2xl shadow-xl w-full object-cover aspect-square" />
                 </div>
-                <div className="home__overview">
-                    <h1>{home.name}</h1>
-                    <p>
-                        <strong>{home.attributes[2].value}</strong> bds |
-                        <strong>{home.attributes[3].value}</strong> ba |
-                        <strong>{home.attributes[4].value}</strong> sqft
-                    </p>
-                    <p>{home.address}</p>
-
-                    <h2>{home.attributes[0].value} ETH</h2>
-
-                    {owner ? (
-                        <div className='home__owned'>
-                            Owned by {owner.slice(0, 6) + '...' + owner.slice(38, 42)}
+                <CardContent className="md:w-1/2 p-8 flex flex-col gap-4">
+                    <CardHeader>
+                        <CardTitle className="text-3xl font-bold text-dark mb-2">{home.name}</CardTitle>
+                        <div className="flex gap-3 mb-2">
+                            <Badge className="bg-accent/90 text-white text-base px-3 py-1 rounded-lg">{home.attributes[2].value} bds</Badge>
+                            <Badge className="bg-accent/90 text-white text-base px-3 py-1 rounded-lg">{home.attributes[3].value} ba</Badge>
+                            <Badge className="bg-accent/90 text-white text-base px-3 py-1 rounded-lg">{home.attributes[4].value} sqft</Badge>
                         </div>
-                    ) : (
-                        <div>
-                            {(account === inspector) ? (
-                                <button className='home__buy' onClick={inspectHandler} disabled={hasInspected}>
-                                    Approve Inspection
-                                </button>
-                            ) : (account === lender) ? (
-                                <button className='home__buy' onClick={lendHandler} disabled={hasLended}>
-                                    Approve & Lend
-                                </button>
-                            ) : (account === seller) ? (
-                                <button className='home__buy' onClick={sellHandler} disabled={hasSold}>
-                                    Approve & Sell
-                                </button>
-                            ) : (
-                                <button className='home__buy' onClick={buyHandler} disabled={hasBought}>
-                                    Buy
-                                </button>
-                            )}
-
-                            <button className='home__contact'>
-                                Contact agent
-                            </button>
-                        </div>
-                    )}
-
-                    <hr />
-
-                    <h2>Overview</h2>
-
-                    <p>
-                        {home.description}
-                    </p>
-
-                    <hr />
-
-                    <h2>Facts and features</h2>
-
-                    <ul>
-                        {home.attributes.map((attribute, index) => (
-                            <li key={index}><strong>{attribute.trait_type}</strong> : {attribute.value}</li>
-                        ))}
-                    </ul>
-                </div>
-
-
-                <button onClick={togglePop} className="home__close">
-                    <img src={close} alt="Close" />
-                </button>
-            </div>
-        </div >
+                        <div className="text-gray text-lg mb-2">{home.address}</div>
+                        <div className="text-2xl font-semibold text-primary mb-4">{home.attributes[0].value} ETH</div>
+                        {owner ? (
+                            <div className="text-accent font-medium mb-2">
+                                Owned by {owner.slice(0, 6) + '...' + owner.slice(38, 42)}
+                            </div>
+                        ) : (
+                            <div className="flex flex-col gap-3 mb-4">
+                                {(account === inspector) ? (
+                                    <Button onClick={inspectHandler} disabled={hasInspected} className="w-full">
+                                        Approve Inspection
+                                    </Button>
+                                ) : (account === lender) ? (
+                                    <Button onClick={lendHandler} disabled={hasLended} className="w-full">
+                                        Approve & Lend
+                                    </Button>
+                                ) : (account === seller) ? (
+                                    <Button onClick={sellHandler} disabled={hasSold} className="w-full">
+                                        Approve & Sell
+                                    </Button>
+                                ) : (
+                                    <Button onClick={buyHandler} disabled={hasBought} className="w-full">
+                                        Buy
+                                    </Button>
+                                )}
+                                <Button variant="outline" className="w-full border-primary text-primary hover:bg-primary/10">
+                                    Contact agent
+                                </Button>
+                            </div>
+                        )}
+                    </CardHeader>
+                    <hr className="my-2" />
+                    <div>
+                        <h2 className="text-xl font-semibold mb-2 text-dark">Overview</h2>
+                        <p className="text-gray mb-4">{home.description}</p>
+                    </div>
+                    <hr className="my-2" />
+                    <div>
+                        <h2 className="text-xl font-semibold mb-2 text-dark">Facts and features</h2>
+                        <ul className="grid grid-cols-2 gap-2">
+                            {home.attributes.map((attribute, index) => (
+                                <li key={index} className="text-gray"><strong>{attribute.trait_type}</strong>: {attribute.value}</li>
+                            ))}
+                        </ul>
+                    </div>
+                </CardContent>
+                <Button onClick={togglePop} className="absolute top-4 right-4 bg-white/80 hover:bg-white p-2 rounded-full shadow-md">
+                    <img src={close} alt="Close" className="w-5 h-5" />
+                </Button>
+            </Card>
+        </motion.div>
     );
 }
 
