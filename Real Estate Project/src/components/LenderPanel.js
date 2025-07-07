@@ -13,6 +13,8 @@ import {
 import { db } from '../firebase'
 import { FaBed, FaBath, FaRulerCombined } from 'react-icons/fa'
 
+const static_img='C:\Users\Ayush\Git Repo\BlockChain-Project\Real Estate Project\public\real_estate.jpeg'
+
 export default function LenderPanel({ escrow, account, lender }) {
   const [listings, setListings] = useState([])
   const [busyMap, setBusyMap]   = useState({})
@@ -119,7 +121,7 @@ export default function LenderPanel({ escrow, account, lender }) {
             <div className="w-full md:w-1/3 flex-shrink-0">
               {l.photoURL ? (
                 <img
-                  src={l.photoURL}
+                  src={static_img}
                   alt={l.title}
                   className="w-full h-40 object-cover"
                   onError={e => (e.currentTarget.src = '/placeholder.jpg')}

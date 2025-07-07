@@ -12,6 +12,9 @@ import {
 import { db } from '../firebase'
 import { FaBed, FaBath, FaRulerCombined } from 'react-icons/fa'
 
+const static_img='/real_estate4.jpeg'
+
+
 export default function InspectorPanel({ escrow, account, inspector }) {
   const [listings, setListings] = useState([])
   const [busyMap, setBusyMap]   = useState({})
@@ -86,10 +89,10 @@ export default function InspectorPanel({ escrow, account, inspector }) {
             className="flex flex-col md:flex-row bg-white rounded-lg shadow overflow-hidden"
           >
             {/* Image */}
-            <div className="w-full md:w-1/3">
+            {/* <div className="w-full md:w-1/3">
               {l.photoURL ? (
                 <img
-                  src={l.photoURL}
+                  src={static_img}
                   alt={l.title}
                   className="w-full h-40 object-cover"
                   onError={e => (e.currentTarget.src = '/placeholder.jpg')}
@@ -99,7 +102,15 @@ export default function InspectorPanel({ escrow, account, inspector }) {
                   <span className="text-gray-500">No Image</span>
                 </div>
               )}
-            </div>
+            </div> */}
+            {true && (
+  <img
+    src={static_img}
+    alt={l.title}
+    className="w-full h-40 object-cover"
+    onError={e => (e.currentTarget.src = '/placeholder.jpg')}
+  />
+)}
 
             {/* Details */}
             <div className="flex-1 p-6 space-y-2">

@@ -10,6 +10,9 @@ import {
 } from 'firebase/firestore'
 import { Link } from 'react-router-dom'
 
+
+const static_img='C:\Users\Ayush\Git Repo\BlockChain-Project\Real Estate Project\public\real_estate.jpeg'
+
 export default function MyListings({ account }) {
   const [myProps, setMyProps] = useState([])
 

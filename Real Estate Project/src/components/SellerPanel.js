@@ -12,6 +12,7 @@ import {
   doc
 } from 'firebase/firestore'
 
+
 export default function SellerPanel({ escrow, account }) {
   const [listings, setListings] = useState([])
   const [busyMap, setBusyMap]   = useState({})

@@ -11,6 +11,10 @@ import {
   doc
 } from 'firebase/firestore'
 
+
+const static_img='/real_estate4.jpeg'
+
+
 export default function PropertyDetail({ escrow, account }) {
   const { listingID } = useParams()
   const [listing, setListing] = useState(null)
@@ -117,10 +121,10 @@ export default function PropertyDetail({ escrow, account }) {
 
   return (
     <div className="max-w-3xl mx-auto p-6 bg-white rounded shadow space-y-4">
-      {/* Image or placeholder */}
+      {/* Image or placeholder
       {photoURL ? (
         <img
-          src={photoURL}
+          src={static_img}
           alt={title}
           className="w-full h-60 object-cover rounded"
           onError={e => (e.currentTarget.src = '/placeholder.jpg')}
@@ -129,8 +133,16 @@ export default function PropertyDetail({ escrow, account }) {
         <div className="w-full h-60 bg-gray-200 rounded flex items-center justify-center">
           <span className="text-gray-500">No Image Available</span>
         </div>
-      )}
+      )} */}
 
+{true && (
+  <img
+    src={static_img}
+    alt={title}
+    className="w-full h-40 object-cover"
+    onError={e => (e.currentTarget.src = '/placeholder.jpg')}
+  />
+)}
       <h1 className="text-3xl font-bold">{title}</h1>
       <p className="text-gray-600">{address}</p>
 

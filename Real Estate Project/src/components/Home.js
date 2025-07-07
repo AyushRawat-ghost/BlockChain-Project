@@ -11,6 +11,8 @@ import {
 } from 'firebase/firestore'
 import { Link } from 'react-router-dom'
 
+const static_img='/real_estate2.jpeg'
+
 export default function Home({ escrow, account }) {
   const [listings, setListings] = useState([])
   const [busyMap, setBusyMap]   = useState({})
@@ -84,9 +86,9 @@ export default function Home({ escrow, account }) {
               className="bg-white rounded-lg shadow hover:shadow-lg flex flex-col overflow-hidden"
             >
               {/* Property Image */}
-              {l.photoURL ? (
+              {/* {l.photoURL ? (
                 <img
-                  src={l.photoURL}
+                  src={static_img}
                   alt={l.title}
                   className="w-full h-40 object-cover"
                   onError={e => (e.currentTarget.src = '/placeholder.jpg')}
@@ -95,8 +97,16 @@ export default function Home({ escrow, account }) {
                 <div className="w-full h-40 bg-gray-200 flex items-center justify-center">
                   <span className="text-gray-500">No Image</span>
                 </div>
-              )}
+              )} */}
 
+{true && (
+  <img
+    src={static_img}
+    alt={l.title}
+    className="w-full h-40 object-cover"
+    onError={e => (e.currentTarget.src = '/placeholder.jpg')}
+  />
+)}
               <div className="p-4 flex-1 flex flex-col">
                 <Link to={`/property/${l.listingID}`} className="flex-1">
                   <h2 className="text-xl font-semibold mb-1">{l.title}</h2>

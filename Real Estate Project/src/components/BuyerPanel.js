@@ -10,6 +10,8 @@ import {
   doc
 } from 'firebase/firestore'
 
+const static_img='C:\Users\Ayush\Git Repo\BlockChain-Project\Real Estate Project\public\real_estate.jpeg'
+
 export default function BuyerPanel({ escrow, account }) {
   const [listings, setListings] = useState([])
   const [busyMap, setBusyMap]   = useState({})
