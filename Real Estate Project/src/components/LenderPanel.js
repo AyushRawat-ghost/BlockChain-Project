@@ -13,7 +13,7 @@ import {
 import { db } from '../firebase'
 import { FaBed, FaBath, FaRulerCombined } from 'react-icons/fa'
 
-const static_img='C:\Users\Ayush\Git Repo\BlockChain-Project\Real Estate Project\public\real_estate.jpeg'
+const static_img='/real_estate3.jpeg'
 
 export default function LenderPanel({ escrow, account, lender }) {
   const [listings, setListings] = useState([])
@@ -118,7 +118,7 @@ export default function LenderPanel({ escrow, account, lender }) {
             className="flex flex-col md:flex-row bg-white rounded-lg shadow overflow-hidden"
           >
             {/* Image or placeholder */}
-            <div className="w-full md:w-1/3 flex-shrink-0">
+            {/* <div className="w-full md:w-1/3 flex-shrink-0">
               {l.photoURL ? (
                 <img
                   src={static_img}
@@ -131,7 +131,16 @@ export default function LenderPanel({ escrow, account, lender }) {
                   <span className="text-gray-500">No Image Available</span>
                 </div>
               )}
-            </div>
+            </div> */}
+
+          {true && (
+  <img
+    src={static_img}
+    alt={l.title}
+    className="w-full h-40 object-cover"
+    onError={e => (e.currentTarget.src = '/placeholder.jpg')}
+  />
+)}
 
             {/* Details */}
             <div className="flex-1 p-6 space-y-2">
