@@ -29,18 +29,15 @@ export default function Navigation({ account, inspector, lender }) {
     <header className="relative">
       {/* Full-bleed background */}
       <img
-        src="/your-bg.jpg"
+        src="/real_estate.jpeg"
         alt="Background"
-        className="absolute inset-0 w-full h-full object-cover"
+        className="absolute inset-0 w-14 h-14 z-5 object-cover rounded-full mt-2"
       />
-      {/* Dark overlay */}
-      <div className="absolute inset-0 bg-black/60"></div>
 
       {/* Nav content */}
       <div className="relative z-10 container mx-auto flex items-center justify-between px-6 py-4">
         {/* Logo */}
-        <NavLink to="/" className="flex items-center space-x-2">
-          <img src="/logo.png" alt="Logo" className="h-8 w-8" />
+        <NavLink to="/" className="flex items-center space-x-2 ml-10">
           <span className="text-white text-xl font-bold">RealEstate</span>
         </NavLink>
 
