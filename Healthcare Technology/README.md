@@ -90,7 +90,6 @@ patient-data-system/
 This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
 
 
-
 1. Backend Setup (Hardhat)
 
 Initialize your Hardhat workspace and install dependencies:
@@ -108,11 +107,13 @@ npm install --save-dev \
   solidity-coverage hardhat-gas-reporter
 # Scaffold basic Hardhat project
 npx hardhat
+# Openzepplian download
+npm install @openzeppelin/contracts
 
 
 2. Frontend Setup (React + Tailwind CSS)
-Create and configure your React application:
 
+Create and configure your React application:
 cd frontend
 # Scaffold React app
 npx create-react-app .
@@ -121,19 +122,16 @@ npm install ethers
 
 
 3. Deployment
+
 # Compile contracts
 npx hardhat compile
-
 # Run tests
 npx hardhat test
-
 # Deploy to a local network
 npx hardhat node        # Start local node
 npx hardhat run scripts/deploy.js --network localhost
-
 # Start development server
 npm start
-
 # Build for production
 npm run build
 
