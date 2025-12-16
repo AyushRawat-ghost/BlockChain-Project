@@ -1,17 +1,58 @@
-node_modules
-.env
+# -------------------------------------------------------------------------
+# 1. DEPENDENCIES & BUILD ARTIFACTS
+# -------------------------------------------------------------------------
+# Node Modules
+/node_modules
+/package-lock.json
+/yarn.lock
 
-# Hardhat files
-/cache
+# Generated Build/Dist Folders
+/build
+/dist
+/out
 /artifacts
-
-# TypeChain files
-/typechain
-/typechain-types
-
-# solidity-coverage files
+/cache
 /coverage
-/coverage.json
+/typechain # Generated TypeScript bindings for contracts
 
-# Hardhat Ignition default folder for deployments against a local node
-ignition/deployments/chain-31337
+# Logs and Editor Files
+*.log
+.DS_Store
+.vscode/
+
+# -------------------------------------------------------------------------
+# 2. HARDHAT & ETHEREUM DEVELOPMENT
+# -------------------------------------------------------------------------
+# Hardhat Network State
+/hardhat-runner/
+/localhost.json # If you save local network addresses
+
+# Private Keys and Secrets (CRITICAL SECURITY)
+# DO NOT commit any files containing wallet private keys or API keys!
+.env
+.env.local
+secrets.json
+*.key
+
+# -------------------------------------------------------------------------
+# 3. FRONTEND SPECIFIC (Next.js / React)
+# -------------------------------------------------------------------------
+# Next.js specific build folders
+.next/
+/out/
+# Vercel deployment folder
+.vercel/
+
+# React/Create React App build
+/frontend/build/
+/frontend/node_modules/
+/frontend/package-lock.json
+
+# -------------------------------------------------------------------------
+# 4. OFF-CHAIN / STORAGE INTEGRATION
+# -------------------------------------------------------------------------
+# Supabase credentials (often stored in .env)
+# The actual SQL files in infra/ should be committed, but credentials should not.
+
+# IPFS temporary cache files (if any local pinning software is used)
+/ipfs_cache/

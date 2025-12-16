@@ -1,7 +1,7 @@
 {
   "name": "healthcare-technology",
   "version": "1.0.0",
-  "description": "",
+  "description": "A secure, decentralized platform for managing patient health records, consultations, prescriptions, billing, and lab results—combining on-chain auditability with off-chain efficiency.",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -11,12 +11,25 @@
   "license": "ISC",
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^6.1.0",
-    "hardhat": "^2.26.1"
+    "@typechain/ethers-v6": "^0.5.1",
+    "@typechain/hardhat": "^9.1.0",
+    "@types/chai": "^4.3.20",
+    "@types/mocha": "^10.0.10",
+    "ethers": "^6.16.0",
+    "hardhat": "^2.26.1",
+    "hardhat-gas-reporter": "^2.3.0",
+    "solidity-coverage": "^0.8.17",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^5.4.0",
     "@walletconnect/web3-provider": "^1.8.0",
-    "ethers": "^6.15.0",
+    "@web3-react/core": "^8.2.3",
     "web3modal": "^1.9.12"
+  },
+  "directories": {
+    "lib": "lib",
+    "test": "test"
   }
 }
