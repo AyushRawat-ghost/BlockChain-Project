@@ -79,4 +79,10 @@ contract DoctorRegistry is Ownable {
     ){
         return doctorList;
     }
+    function doctorCount()
+        external view returns(
+            uint256
+    ){
+        return doctorList.length;
+    }
 }
