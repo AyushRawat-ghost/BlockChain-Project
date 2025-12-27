@@ -3,31 +3,26 @@ pragma solidity ^0.8.20;
 
 contract MockRegistry {
     mapping(address => bool) public registered;
-    address[] public doctorList;
+    address[] public doctorList; // To keep track of total count
 
-    // This matches the IRegistryCheck interface in MedicalRecord.sol
-    function isDoctor(
-        address _addr
-    ) external view returns (
-        bool
-                ) {
+    function isDoctor(address _addr) external view returns (bool) {
         return registered[_addr];
     }
     
-    // This matches the IRegistryCheck interface in MedicalRecord.sol
     function isPatient(address _addr) external view returns (bool) {
         return registered[_addr];
     }
-
-    /**
-     * @dev Helper function used only by the test script 
-     * to "register" addresses in the mock system.
-     */
-    function mockRegister(address _addr) external {
-        registered[_addr] = true;
-        doctorList.push(_addr);
+    function getDoctorList() external view returns (address[] memory) {
+        return doctorList;
     }
     function doctorCount() external view returns (uint256) {
-    return doctorList.length;
-}
+        return doctorList.length;
+    }
+
+    function mockRegister(address _addr) external {
+        if (!registered[_addr]) {
+            registered[_addr] = true;
+            doctorList.push(_addr);
+        }
+    }
 }

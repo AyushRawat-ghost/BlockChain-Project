@@ -40,23 +40,23 @@ describe("EmergencyProtocol (2/3 Voting)", function () {
         await emergency.connect(owner).raiseEmergency(patient1.address);
         await emergency.connect(doc1).vote(0); // 1 vote out of 3
 
-        expect(await emergency.isAccessGranted(patient1.address)).to.equal(false);
+        expect(await emergency.isEmergencyAccessApproved(patient1.address)).to.equal(false);
     });
 
-    it("Should grant access when 2/3 majority is reached", async function () {
-        const { emergency, owner, doc1, doc2, patient1 } = await loadFixture(deployEmergencyFixture);
-        
-        await emergency.connect(owner).raiseEmergency(patient1.address);
-        
-        // Vote 1
-        await emergency.connect(doc1).vote(0);
-        // Vote 2 (This hits the 2/3 threshold)
-        await expect(emergency.connect(doc2).vote(0))
-            .to.emit(emergency, "EmergencyApproved")
-            .withArgs(0, patient1.address);
+it("Should grant access when 2/3 majority is reached", async function () {
+    const { emergency, owner, doc1, doc2, patient1 } = await loadFixture(deployEmergencyFixture);
+    
+    await emergency.connect(owner).raiseEmergency(patient1.address);
+    await emergency.connect(doc1).vote(0);
+    
+    // Use "EmergencyResolved" to match the contract
+    await expect(emergency.connect(doc2).vote(0))
+        .to.emit(emergency, "EmergencyResolved") 
+        .withArgs(0, patient1.address);
 
-        expect(await emergency.isAccessGranted(patient1.address)).to.equal(true);
-    });
+    // Use "isEmergencyAccessApproved" to match the contract
+    expect(await emergency.isEmergencyAccessApproved(patient1.address)).to.equal(true);
+});
 
     it("Should prevent double voting by the same doctor", async function () {
         const { emergency, owner, doc1, patient1 } = await loadFixture(deployEmergencyFixture);
@@ -65,7 +65,7 @@ describe("EmergencyProtocol (2/3 Voting)", function () {
         await emergency.connect(doc1).vote(0);
         
         await expect(emergency.connect(doc1).vote(0))
-            .to.be.revertedWith("Doctor has already voted");
+            .to.be.revertedWith("Already voted");
     });
 
     it("Should revert if a non-doctor tries to vote", async function () {
@@ -73,6 +73,6 @@ describe("EmergencyProtocol (2/3 Voting)", function () {
         
         await emergency.connect(owner).raiseEmergency(patient1.address);
         await expect(emergency.connect(stranger).vote(0))
-            .to.be.revertedWith("Only registered doctors can vote");
+            .to.be.revertedWith("Only Doctors can vote");
     });
 });
