@@ -62,6 +62,25 @@ async function main() {
   const accAddr = await access.getAddress();
   console.log("✅ AccessRequest:", accAddr);
 
+  const Insurance = await hre.ethers.getContractFactory("Insurance");
+  const insurance = await Insurance.deploy(ptAddr, insAddr); // Passing Patient and Insurer Registries
+  await insurance.waitForDeployment();
+  const insuranceAddr = await insurance.getAddress();
+  console.log("✅ Insurance:", insuranceAddr);
+
+  const BillingContract = await hre.ethers.getContractFactory("BillingContract");
+  const billing = await BillingContract.deploy();
+  await billing.waitForDeployment();
+  const billAddr = await billing.getAddress();
+  console.log("✅ BillingContract:", billAddr);
+
+  console.log("\n--- UPDATED BACKEND .env VALUES ---");
+  console.log(`PATIENT_REGISTRY_ADDR=${ptAddr}`);
+  console.log(`DOCTOR_REGISTRY_ADDR=${drAddr}`);
+  console.log(`INSURANCE_ADDR=${insuranceAddr}`);
+  console.log(`TELEMEDICINE_ADDR=${teleAddr}`);
+  console.log(`EMERGENCY_PROTOCOL_ADDR=${emAddr}`);
+
   console.log("\n--- UPDATED FRONTEND .env VALUES ---");
   console.log(`NEXT_PUBLIC_TELEMEDICINE=${teleAddr}`);
   console.log(`NEXT_PUBLIC_PRESCRIPTION=${rxAddr}`);

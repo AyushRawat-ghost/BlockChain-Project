@@ -18,14 +18,17 @@
     "ethers": "^6.16.0",
     "hardhat": "^2.26.1",
     "hardhat-gas-reporter": "^2.3.0",
+    "nodemon": "^3.1.14",
     "solidity-coverage": "^0.8.17",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^5.4.0",
+    "@supabase/supabase-js": "^2.104.1",
     "@walletconnect/web3-provider": "^1.8.0",
     "@web3-react/core": "^8.2.3",
+    "dotenv": "^17.4.2",
     "web3modal": "^1.9.12"
   },
   "directories": {
